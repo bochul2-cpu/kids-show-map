@@ -13,7 +13,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>아이랑 공연</title>
+<title>아이랑 가볼까</title>
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga_measurement_id}"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -224,7 +224,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar" id="topbar">
   <div class="topbar-header">
-    <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
+    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">공연부터 캠핑까지, 아이랑 갈 곳 찾기</span></div>
     <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
   </div>
   <div class="topbar-body" id="topbarBody">
