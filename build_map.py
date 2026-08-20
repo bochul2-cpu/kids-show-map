@@ -23,6 +23,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="아이랑 가볼까">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- 카카오톡/문자/메신저로 공유했을 때 미리보기 카드가 뜨게. 정적 사이트라 공유된
+     특정 장소별로는 못 바꾸고(og 태그는 크롤러가 JS 실행 없이 그냥 이 HTML을 읽어가서
+     결정됨) 앱 전체 기준의 고정 카드만 가능하다. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="아이랑 가볼까">
+<meta property="og:description" content="공연부터 캠핑까지, 아이랑 갈 곳 찾기">
+<meta property="og:image" content="https://bochul2-cpu.github.io/kids-show-map/icons/og-image.png">
+<meta property="og:url" content="https://bochul2-cpu.github.io/kids-show-map/">
+<meta name="twitter:card" content="summary_large_image">
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga_measurement_id}"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
