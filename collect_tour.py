@@ -182,6 +182,7 @@ def build_tour_place(item: dict, category: str, genre_label: str, detail: dict, 
         "link": build_link({**item, **detail}),
         "telephone": clean_telno(item.get("tel", "")),
         "approx_location": False,
+        "amenities": [],  # 기저귀교환대/수유실/주차장/유모차대여 등 - 자동 수집 안 됨, 수동 보강용
     }
 
 

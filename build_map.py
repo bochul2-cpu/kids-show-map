@@ -54,6 +54,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .region-row .chip.active {{ background: #17a893; border-color: #17a893; color: white; }}
   .cat-row .chip.active {{ background: #ff7a50; border-color: #ff7a50; color: white; }}
+  .amenity-row .chip.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
   .date-row {{ display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }}
   .date-row .chip.active {{ background: #ffb100; border-color: #ffb100; color: white; }}
   .date-row input[type=date] {{
@@ -194,6 +195,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
   <div class="chip-row region-row" id="regionChipRow"></div>
   <div class="chip-row cat-row" id="catChipRow"></div>
+  <div class="chip-row amenity-row" id="amenityChipRow"></div>
   <div class="date-row">
     <button type="button" class="chip" data-quick="today">오늘</button>
     <button type="button" class="chip" data-quick="tomorrow">내일</button>
@@ -534,6 +536,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   let searchQuery = '';
   let showFavoritesOnly = false;
+  const AMENITIES = ['기저귀교환대', '수유실', '주차장', '유모차대여'];
+  let selectedAmenities = new Set();
 
   function applyFilters() {{
     closePopup(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
@@ -555,6 +559,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (showFavoritesOnly) {{
       const favIds = getFavoriteIds();
       filtered = filtered.filter(p => favIds.has(p.id));
+    }}
+    if (selectedAmenities.size > 0) {{
+      filtered = filtered.filter(p => {{
+        const have = p.amenities || [];
+        for (const a of selectedAmenities) {{ if (!have.includes(a)) return false; }}
+        return true;
+      }});
     }}
     if (dateVal) {{
       const [y, m, d] = dateVal.split('-').map(Number);
@@ -643,6 +654,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const categories = CATEGORY_ORDER.filter(c => presentCategories.has(c)).filter(isInSeason);
     const catItems = categories.map(c => ({{ value: c, label: (CATEGORY_ICONS[c] || '🎫') + ' ' + c }}));
     initChipRow(document.getElementById('catChipRow'), catItems);
+
+    // 편의시설은 region/category와 달리 여러 개를 동시에 켤 수 있어야 해서(기저귀교환대
+    // + 주차장처럼 같이 필요한 경우) initChipRow의 단일선택 구조 대신 따로 만든다.
+    // 참고: 지금 수집 데이터엔 편의시설 정보가 전혀 없어서(자동 수집 불가 항목),
+    // 이 필터를 켜면 당장은 결과가 0건으로 나온다 - 나중에 수동으로 채워 넣을 자리다.
+    const amenityRow = document.getElementById('amenityChipRow');
+    amenityRow.innerHTML = AMENITIES.map(a => `<button type="button" class="chip" data-value="${{a}}">${{a}}</button>`).join('');
+    amenityRow.querySelectorAll('.chip').forEach(btn => {{
+      btn.addEventListener('click', () => {{
+        const v = btn.dataset.value;
+        if (selectedAmenities.has(v)) selectedAmenities.delete(v); else selectedAmenities.add(v);
+        btn.classList.toggle('active');
+        applyFilters();
+      }});
+    }});
 
     document.getElementById('dateFilter').addEventListener('change', applyFilters);
     document.querySelectorAll('.date-row .chip').forEach(btn => {{

@@ -182,6 +182,7 @@ def build_place(detail: dict, facility: dict) -> dict:
         "link": detail.get("link") or f"https://www.kopis.or.kr/mob/db/pblprfrView.do?mt20Id={mt20id}",
         "telephone": clean_telno(facility.get("telno", "")),
         "approx_location": bool(facility.get("approx")),
+        "amenities": [],  # 기저귀교환대/수유실/주차장/유모차대여 등 - 자동 수집 안 됨, 수동 보강용
     }
 
 
