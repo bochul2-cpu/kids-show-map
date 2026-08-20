@@ -1,6 +1,6 @@
 """data/places.json 을 읽어 Leaflet 지도 기반의 반응형 index.html 을 생성한다.
 공연 상세(기간/가격/포스터/링크)를 팝업에 담고, 확대 정도에 따라 마커가
-클러스터 -> 개별 핀으로 펼쳐지도록 구성한다."""
+클러스터 -> 개별 핀으로 펼쳐지도록 구성한다. 첫 화면은 부천 전역이 보이도록 고정."""
 import json
 
 from config import DATA_PATH, MAP_OUTPUT_PATH
@@ -22,6 +22,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     z-index: 1000; background: white; padding: 6px 14px; border-radius: 20px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.3); font-size: 13px; color: #333;
   }}
+
+  /* 커스텀 핀 마커 */
+  .prf-pin {{ filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }}
+
+  /* 커스텀 클러스터 배지 */
+  .cluster-badge {{
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(160deg, #8b7cf6, #5b4fe0);
+    color: white; font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(91,79,224,0.5); border: 2px solid white;
+  }}
+
   .prf-popup {{ width: 240px; }}
   .prf-popup img {{ width: 100%; height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }}
   .prf-popup h3 {{ font-size: 15px; margin: 0 0 4px; line-height: 1.3; }}
@@ -29,12 +42,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     display: inline-block; font-size: 11px; background: #eef2ff; color: #3b4bcc;
     padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
   }}
+  .prf-popup .approx {{
+    display: inline-block; font-size: 11px; background: #fff4e5; color: #b26a00;
+    padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; margin-left: 4px;
+  }}
   .prf-popup dl {{ margin: 6px 0 0; font-size: 12.5px; color: #444; }}
   .prf-popup dt {{ font-weight: 600; float: left; width: 44px; clear: left; color: #888; }}
   .prf-popup dd {{ margin: 0 0 3px 48px; }}
   .prf-popup a.link-btn {{
     display: block; text-align: center; margin-top: 8px; padding: 6px 0;
-    background: #3b4bcc; color: white; border-radius: 6px; text-decoration: none; font-size: 13px;
+    background: #5b4fe0; color: white; border-radius: 6px; text-decoration: none; font-size: 13px;
   }}
 </style>
 </head>
@@ -46,23 +63,56 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <script>
   const places = {places_json};
 
-  const map = L.map('map').setView([37.5665, 126.9780], 10);
+  // 첫 화면은 부천시 전역이 보이도록 고정 (지도 조작으로 다른 지역도 볼 수 있음)
+  const BUCHEON_BOUNDS = [[37.454, 126.712], [37.578, 126.860]];
+
+  const map = L.map('map');
+  map.fitBounds(BUCHEON_BOUNDS);
+
   L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
   }}).addTo(map);
 
-  const clusters = L.markerClusterGroup({{ maxClusterRadius: 50 }});
+  const pinSvg = `<svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#8b7cf6"/>
+        <stop offset="100%" stop-color="#5b4fe0"/>
+      </linearGradient>
+    </defs>
+    <path d="M15 0C6.716 0 0 6.716 0 15c0 11.25 15 23 15 23s15-11.75 15-23C30 6.716 23.284 0 15 0z" fill="url(#pinGrad)"/>
+    <circle cx="15" cy="14" r="6" fill="white"/>
+  </svg>`;
+
+  const pinIcon = L.divIcon({{
+    html: pinSvg,
+    className: 'prf-pin',
+    iconSize: [30, 38],
+    iconAnchor: [15, 38],
+    popupAnchor: [0, -34],
+  }});
+
+  const clusters = L.markerClusterGroup({{
+    maxClusterRadius: 50,
+    iconCreateFunction: function (cluster) {{
+      return L.divIcon({{
+        html: `<div class="cluster-badge">${{cluster.getChildCount()}}</div>`,
+        className: '',
+        iconSize: [36, 36],
+      }});
+    }},
+  }});
 
   places.forEach(p => {{
-    const marker = L.marker([p.lat, p.lon]);
+    const marker = L.marker([p.lat, p.lon], {{ icon: pinIcon }});
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
-    const linkHtml = p.link ? `<a class="link-btn" href="${{p.link}}" target="_blank">예매/상세보기</a>` : '';
+    const approxHtml = p.approx_location ? `<span class="approx">위치 대략</span>` : '';
 
     marker.bindPopup(
       `<div class="prf-popup">` +
         posterHtml +
-        `<span class="genre">${{p.genre}}</span>` +
+        `<span class="genre">${{p.genre}}</span>` + approxHtml +
         `<h3>${{p.title}}</h3>` +
         `<dl>` +
           `<dt>기간</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` +
@@ -72,7 +122,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           (p.schedule ? `<dt>시간</dt><dd>${{p.schedule}}</dd>` : '') +
           (p.telephone ? `<dt>전화</dt><dd>${{p.telephone}}</dd>` : '') +
         `</dl>` +
-        linkHtml +
+        `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">예매/상세보기</a>` +
       `</div>`,
       {{ maxWidth: 260 }}
     );
@@ -80,10 +130,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }});
 
   map.addLayer(clusters);
-
-  if (places.length > 0) {{
-    map.fitBounds(clusters.getBounds().pad(0.1));
-  }}
 </script>
 </body>
 </html>
