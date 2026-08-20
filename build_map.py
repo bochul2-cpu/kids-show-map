@@ -101,12 +101,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .list-items {{ padding: 8px; }}
 
-  /* 추천은 목록(필터 결과)이랑 섞이면 뭐가 뭔지 헷갈린다는 피드백으로, 목록 패널
-     안에 끼워넣지 않고 지도 위 오른쪽 위에 뜨는 별도 카드로 분리했다. */
+  /* 추천은 목록(필터 결과)이랑 섞이면 뭐가 뭔지 헷갈린다는 피드백으로 목록 패널에서는
+     뺐고, 지도 위에 떠 있게 했더니 이번엔 붕 떠서 애매하다는 피드백으로 다시 상단
+     메뉴(필터 바) 안에 고정된 한 줄로 자리잡았다 - 옅은 색 배경으로 필터 칩들과는
+     구분되게. */
   .reco-section {{
-    position: absolute; top: 10px; left: 392px; right: 12px; z-index: 20;
-    background: white; border-radius: 12px; box-shadow: 0 3px 14px rgba(0,0,0,0.18);
-    padding: 10px 10px 6px;
+    margin-top: 8px; padding: 8px 10px; background: #fff1ea; border-radius: 10px;
   }}
   .reco-title {{ font-size: 12.5px; font-weight: 700; color: #d85c30; margin-bottom: 6px; }}
   .reco-scroll {{ display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }}
@@ -145,7 +145,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
     .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
-    .reco-section {{ left: 8px; right: 8px; }} /* 모바일은 목록 패널이 바텀시트라 지도가 전체 폭 - 데스크톱처럼 왼쪽에 목록 패널 폭만큼 비켜줄 필요 없음 */
     /* 편의시설/반경 필터는 자주 안 쓰는 것들이라 모바일 상단바가 너무 길어지지 않게
        기본은 접어두고, "상세 필터" 버튼으로 펼칠 수 있게 한다 (데스크톱은 그대로 펼쳐둠). */
     .more-filters-toggle {{ display: block; }}
@@ -273,6 +272,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <button type="button" class="chip" data-quick="all">전체보기</button>
       <input type="date" id="dateFilter">
     </div>
+    <div class="reco-section" id="recoSection" style="display:none;">
+      <div class="reco-title" id="recoTitle"></div>
+      <div class="reco-scroll" id="recoScroll"></div>
+    </div>
     <div class="count-row">
       <span class="count-text" id="countText">불러오는 중...</span>
       <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
@@ -285,10 +288,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="list-items" id="listItems"></div>
   </div>
   <div id="map"></div>
-  <div class="reco-section" id="recoSection" style="display:none;">
-    <div class="reco-title" id="recoTitle"></div>
-    <div class="reco-scroll" id="recoScroll"></div>
-  </div>
   <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
