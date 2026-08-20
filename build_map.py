@@ -86,11 +86,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .date-row input[type=date]::-webkit-calendar-picker-indicator {{ cursor: pointer; }}
   .count-row {{ display: flex; align-items: center; justify-content: space-between; margin-top: 6px; gap: 8px; }}
   .count-text {{ font-size: 11.5px; color: #999; }}
+  .count-row-toggles {{ display: flex; gap: 6px; }}
   .fav-filter-btn {{
     flex-shrink: 0; border: 1.5px solid #ffcbd8; background: white; color: #e0507a;
     border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
   }}
   .fav-filter-btn.active {{ background: #ff5c8a; border-color: #ff5c8a; color: white; }}
+  .recent-filter-btn {{
+    flex-shrink: 0; border: 1.5px solid #c9dcf5; background: white; color: #4a76b8;
+    border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
+  }}
+  .recent-filter-btn.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
 
   /* ---------- 데스크톱: 넓은 화면에서 칩 줄들이 한 줄에 눌린 채로 옆에 빈 공백만
      길게 남던 문제 - 가로 스크롤 대신 줄바꿈으로 실제 너비를 채우고, 상단바
@@ -113,6 +119,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center;
   }}
   .locate-btn:active {{ background: #fff1ea; }}
+
+  .surprise-btn {{
+    position: absolute; left: 12px; bottom: 56px; z-index: 25;
+    border: none; border-radius: 20px; padding: 10px 16px;
+    background: linear-gradient(160deg, #ffab7a, #ff7a50); color: white;
+    font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 2px 10px rgba(255,122,80,0.5);
+  }}
+  .surprise-btn:active {{ filter: brightness(0.95); }}
 
   .list-panel {{
     width: 380px; flex-shrink: 0; background: #fff8f3; overflow-y: auto;
@@ -170,6 +185,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
     .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
+    .surprise-btn {{ bottom: 64px; font-size: 12px; padding: 9px 13px; }}
     /* 편의시설/반경 필터는 자주 안 쓰는 것들이라 모바일 상단바가 너무 길어지지 않게
        기본은 접어두고, "상세 필터" 버튼으로 펼칠 수 있게 한다 (데스크톱은 그대로 펼쳐둠). */
     .more-filters-toggle {{ display: block; }}
@@ -309,7 +325,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
     <div class="count-row">
       <span class="count-text" id="countText">불러오는 중...</span>
-      <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
+      <div class="count-row-toggles">
+        <button type="button" class="recent-filter-btn" id="recentFilterBtn">🕒 최근 본 곳</button>
+        <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
+      </div>
     </div>
   </div>
 </div>
@@ -320,6 +339,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
   <div id="map"></div>
   <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
+  <button type="button" class="surprise-btn" id="surpriseBtn">🎲 오늘은 여기 어때?</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
@@ -377,6 +397,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (btn) btn.textContent = nowFav ? '❤️' : '🤍';
     if (showFavoritesOnly && !nowFav) applyFilters();
   }};
+
+  // ---------- 최근 본 곳 (역시 device id 기반, 즐겨찾기와 같은 마이그레이션 이유) ----------
+  const RECENT_LIMIT = 20;
+  function recentStorageKey() {{ return `kids_map_recent_${{getDeviceId()}}`; }}
+
+  function getRecentIds() {{
+    try {{
+      return JSON.parse(localStorage.getItem(recentStorageKey()) || '[]');
+    }} catch (e) {{
+      return [];
+    }}
+  }}
+
+  // 마커/목록/추천 카드 어디서 열든 - 팝업이 열리는 순간을 "봤다"로 친다.
+  function recordRecentlyViewed(p) {{
+    let ids = getRecentIds().filter(id => id !== p.id);
+    ids.unshift(p.id);
+    ids = ids.slice(0, RECENT_LIMIT);
+    localStorage.setItem(recentStorageKey(), JSON.stringify(ids));
+  }}
 
   const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 (GPS 거부/실패 시 기본값)
   const map = new naver.maps.Map('map', {{
@@ -590,12 +630,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       icon: pinIconFor(p),
     }});
     naver.maps.Event.addListener(marker, 'click', function () {{
+      recordRecentlyViewed(p);
       openPopupAt(marker.getPosition(), marker, buildPopupHtml(p));
     }});
     return marker;
   }}
 
   function openFromList(p) {{
+    recordRecentlyViewed(p);
     const pos = new naver.maps.LatLng(p.lat, p.lon);
     // 목록에서 고른 항목은 현재 지도 화면 밖에 있을 수 있다 - 줌만 바꾸면 마커가
     // 화면 어딘가 엉뚱한(심지어 화면 밖) 위치에 놓인 채로 팝업 위치를 계산하게 돼서
@@ -771,6 +813,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   let searchQuery = '';
   let showFavoritesOnly = false;
+  let showRecentOnly = false;
   const AMENITIES = ['기저귀교환대', '수유실', '주차장', '유모차대여'];
   let selectedAmenities = new Set();
   let userPosition = null; // GPS 성공 시에만 채워진다 - 반경 필터의 기준점
@@ -802,6 +845,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (showFavoritesOnly) {{
       const favIds = getFavoriteIds();
       filtered = filtered.filter(p => favIds.has(p.id));
+    }}
+    if (showRecentOnly) {{
+      // 그냥 필터링만 하면 원래 데이터 순서로 나와서 "최근"이라는 의미가 없다 -
+      // 최근 본 순서 그대로 정렬까지 해준다.
+      const order = new Map(getRecentIds().map((id, i) => [id, i]));
+      filtered = filtered.filter(p => order.has(p.id));
+      filtered = filtered.slice().sort((a, b) => order.get(a.id) - order.get(b.id));
     }}
     if (selectedAmenities.size > 0) {{
       filtered = filtered.filter(p => {{
@@ -1018,6 +1068,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       document.getElementById('favFilterBtn').classList.toggle('active', showFavoritesOnly);
       applyFilters();
     }});
+
+    document.getElementById('recentFilterBtn').addEventListener('click', () => {{
+      showRecentOnly = !showRecentOnly;
+      document.getElementById('recentFilterBtn').classList.toggle('active', showRecentOnly);
+      applyFilters();
+    }});
   }}
 
   // 지도를 GPS 위치로 옮겨도 "정확히 어디가 내 위치인지" 표시가 없으면 화면 가운데를
@@ -1067,6 +1123,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     goToCurrentLocation(15, () => {{
       alert('위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.');
     }});
+  }});
+
+  // "오늘은 여기 어때?" - GPS가 있으면 내 주변 10km, 없으면 전체 중에서 아무 데나
+  // 하나 골라준다. 지금 문 닫았을 가능성이 있는 곳은 최대한 피하되, 그것 때문에
+  // 후보가 아예 없어지면(예: 야심한 시각) 그냥 전체 후보에서 고른다.
+  document.getElementById('surpriseBtn').addEventListener('click', () => {{
+    const basePool = userPosition
+      ? allPlaces.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= 10)
+      : allPlaces;
+    if (basePool.length === 0) {{
+      alert('주변에 추천할 곳이 없어요. 지도를 옮기거나 현재 위치를 다시 확인해보세요!');
+      return;
+    }}
+    const openPool = basePool.filter(p => !isLikelyClosedNow(p));
+    const pool = openPool.length > 0 ? openPool : basePool;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    openFromList(pick);
   }});
 
   fetch('data/places.json')
