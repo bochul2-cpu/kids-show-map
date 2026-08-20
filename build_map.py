@@ -377,7 +377,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   function renderList(list) {{
     const container = document.getElementById('listItems');
     if (list.length === 0) {{
-      container.innerHTML = '<div class="empty-msg">조건에 맞는 공연이 없어요</div>';
+      container.innerHTML = '<div class="empty-msg">조건에 맞는 곳이 없어요</div>';
       return;
     }}
     container.innerHTML = list.map((p, i) => {{
@@ -475,7 +475,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     renderList(filtered);
     const label = document.getElementById('sheetLabel');
     if (label) label.textContent = `목록 보기 (${{filtered.length}}건)`;
-    document.getElementById('countText').textContent = `공연 ${{filtered.length}}/${{allPlaces.length}}건`;
+    document.getElementById('countText').textContent = `장소 ${{filtered.length}}/${{allPlaces.length}}건`;
   }}
 
   function setActiveChip(rowEl, value) {{
