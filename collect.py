@@ -7,7 +7,13 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
-from config import NAVER_API_URL, NAVER_HEADERS, KEYWORDS, DATA_PATH
+from config import (
+    NAVER_API_URL,
+    NAVER_HEADERS,
+    KEYWORDS,
+    DATA_PATH,
+    ALLOWED_ADDRESS_PREFIXES,
+)
 
 TAG_RE = re.compile(r"<[^<]+?>")
 
@@ -54,6 +60,10 @@ def collect() -> list[dict]:
 
         for item in items:
             place = to_place(item, keyword)
+
+            if not place["address"].startswith(ALLOWED_ADDRESS_PREFIXES):
+                continue
+
             # 같은 장소가 여러 키워드에 중복으로 잡히는 걸 좌표+이름 기준으로 제거
             key = (place["title"], round(place["lat"], 5), round(place["lon"], 5))
             if key in seen:

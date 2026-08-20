@@ -5,16 +5,17 @@ NAVER_HEADERS = {
     "X-NCP-APIGW-API-KEY": "여기에_Client_Secret",
 }
 
-KEYWORDS = [
-    "어린이공연",
-    "어린이연극",
-    "인형극",
-    "어린이뮤지컬",
-    "가족공연",
-    "아동극장",
-    "키즈카페 공연",
-    "어린이극장",
+SHOW_KEYWORDS = ["어린이공연", "어린이뮤지컬", "인형극", "가족공연"]
+
+REGIONS = [
+    "서울", "수원", "성남", "고양", "용인", "부천", "안산", "안양",
+    "화성", "남양주", "평택", "의정부", "파주", "김포", "광명", "시흥",
+    "군포", "하남", "오산", "이천", "구리", "안성", "의왕", "양주",
 ]
+
+KEYWORDS = [f"{region} {kw}" for region in REGIONS for kw in SHOW_KEYWORDS]
+
+ALLOWED_ADDRESS_PREFIXES = ("서울", "경기")
 
 DATA_PATH = "data/places.json"
 MAP_OUTPUT_PATH = "index.html"
