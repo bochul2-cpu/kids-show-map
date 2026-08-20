@@ -115,6 +115,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .prf-popup dl {{ margin: 6px 0 0; font-size: 12.5px; color: #444; }}
   .prf-popup dt {{ font-weight: 600; float: left; width: 44px; clear: left; color: #888; }}
   .prf-popup dd {{ margin: 0 0 3px 48px; }}
+  .prf-popup .price-note {{ font-size: 10.5px; color: #aaa; }}
   .prf-popup .btn-row {{ display: flex; gap: 6px; margin-top: 8px; }}
   .prf-popup .btn-row a, .prf-popup .btn-row button {{
     flex: 1; text-align: center; padding: 6px 0; border: none; border-radius: 6px;
@@ -130,6 +131,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .prf-popup h3 {{ font-size: 12.5px; margin-bottom: 3px; }}
     .prf-popup .genre, .prf-popup .approx {{ font-size: 9.5px; padding: 1px 6px; }}
     .prf-popup dl {{ font-size: 10.5px; }}
+    .prf-popup .price-note {{ font-size: 9px; }}
     .prf-popup dt {{ width: 34px; }}
     .prf-popup dd {{ margin-left: 38px; }}
     .prf-popup .btn-row a, .prf-popup .btn-row button {{ font-size: 11px; padding: 5px 0; }}
@@ -247,11 +249,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   naver.maps.Event.addListener(map, 'click', () => closePopup());
   naver.maps.Event.addListener(map, 'zoom_changed', function (zoom) {{
     // 축소해서 마커가 클러스터로 합쳐지는 시점(클러스터 maxZoom=15 근처)에는 열려있던 팝업도 같이 닫는다
+    // (마우스 위치 기준 확대 중에 강제로 팝업 위치로 되돌리면 튕기는 느낌이 나서, 팝업이 열릴 때만 위치를 맞추고
+    // 그 이후 확대/축소는 사용자가 스크롤한 위치를 그대로 따라가게 둔다)
     if (zoom < 14) {{
       closePopup();
-    }} else if (activePopupPosition) {{
-      // 팝업이 열린 채로 확대/축소하면 그 공연 위치를 기준으로 계속 화면을 맞춘다
-      panForPopup(activePopupPosition);
     }}
   }});
 
@@ -274,7 +275,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           `<dt>기간</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` +
           `<dt>장소</dt><dd>${{p.venue}}<br>${{p.address}}</dd>` +
           (p.age ? `<dt>연령</dt><dd>${{p.age}}</dd>` : '') +
-          (p.price ? `<dt>가격</dt><dd>${{p.price}}</dd>` : '') +
+          (p.price ? `<dt>정가</dt><dd>${{p.price}}<br><span class="price-note">실제 예매가는 다를 수 있어요</span></dd>` : '') +
           (p.schedule ? `<dt>시간</dt><dd>${{p.schedule}}</dd>` : '') +
           (p.telephone ? `<dt>전화</dt><dd>${{p.telephone}}</dd>` : '') +
         `</dl>` +
