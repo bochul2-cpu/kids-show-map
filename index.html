@@ -23,10 +23,15 @@
     flex-shrink: 0; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     padding: 10px 12px; z-index: 20; position: relative;
   }
+  .topbar-header { display: flex; align-items: center; justify-content: space-between; }
   .brand { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
   .brand .logo { font-size: 18px; }
   .brand h1 { font-size: 15px; margin: 0; color: #333; font-weight: 800; }
   .brand .tagline { font-size: 11px; color: #aaa; margin-left: 4px; }
+  .topbar-toggle {
+    display: none; flex-shrink: 0; background: none; border: none; color: #bbb;
+    font-size: 13px; padding: 4px 8px; cursor: pointer; margin-bottom: 8px;
+  }
 
   .search-box-row { margin-bottom: 8px; }
   .search-box-row input {
@@ -121,9 +126,16 @@
     .more-filters-toggle { display: block; }
     .extra-filters { display: none; }
     .extra-filters.expanded { display: block; }
+
+    /* 상단 필터 메뉴 전체를 접었다 폈다 할 수 있게 한다 (모바일 전용) - 목록을
+       "목록 보기"로 펼치면 자동으로 접혀서 지도/목록에 화면을 더 내준다. */
+    .topbar-toggle { display: block; }
+    .topbar-body { max-height: 600px; overflow: hidden; transition: max-height .25s ease; }
+    .topbar.collapsed .topbar-body { max-height: 0; }
+
     .list-panel {
       position: absolute; left: 0; right: 0; bottom: 0; width: auto;
-      max-height: 78%; border-right: none; border-radius: 18px 18px 0 0;
+      max-height: 88%; border-right: none; border-radius: 18px 18px 0 0;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.18); z-index: 30;
       transform: translateY(calc(100% - 46px)); transition: transform .28s ease;
       display: flex; flex-direction: column;
@@ -200,33 +212,38 @@
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
-  <div class="search-box-row">
-    <input type="text" id="searchBox" placeholder="장소명/지역명 검색">
+<div class="topbar" id="topbar">
+  <div class="topbar-header">
+    <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
+    <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
   </div>
-  <div class="chip-row region-row" id="regionChipRow"></div>
-  <div class="chip-row cat-row" id="catChipRow"></div>
-  <button type="button" class="more-filters-toggle" id="moreFiltersToggle">🔧 상세 필터 더보기 ▾</button>
-  <div class="extra-filters" id="extraFilters">
-    <div class="chip-row amenity-row" id="amenityChipRow"></div>
-    <div class="chip-row radius-row" id="radiusRow" style="display:none;">
-      <button type="button" class="chip active" data-radius="">반경 전체</button>
-      <button type="button" class="chip" data-radius="5">5km</button>
-      <button type="button" class="chip" data-radius="10">10km</button>
-      <button type="button" class="chip" data-radius="20">20km</button>
+  <div class="topbar-body" id="topbarBody">
+    <div class="search-box-row">
+      <input type="text" id="searchBox" placeholder="장소명/지역명 검색">
     </div>
-  </div>
-  <div class="date-row">
-    <button type="button" class="chip" data-quick="today">오늘</button>
-    <button type="button" class="chip" data-quick="tomorrow">내일</button>
-    <button type="button" class="chip" data-quick="weekend">이번 주말</button>
-    <button type="button" class="chip" data-quick="all">전체보기</button>
-    <input type="date" id="dateFilter">
-  </div>
-  <div class="count-row">
-    <span class="count-text" id="countText">불러오는 중...</span>
-    <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
+    <div class="chip-row region-row" id="regionChipRow"></div>
+    <div class="chip-row cat-row" id="catChipRow"></div>
+    <button type="button" class="more-filters-toggle" id="moreFiltersToggle">🔧 상세 필터 더보기 ▾</button>
+    <div class="extra-filters" id="extraFilters">
+      <div class="chip-row amenity-row" id="amenityChipRow"></div>
+      <div class="chip-row radius-row" id="radiusRow" style="display:none;">
+        <button type="button" class="chip active" data-radius="">반경 전체</button>
+        <button type="button" class="chip" data-radius="5">5km</button>
+        <button type="button" class="chip" data-radius="10">10km</button>
+        <button type="button" class="chip" data-radius="20">20km</button>
+      </div>
+    </div>
+    <div class="date-row">
+      <button type="button" class="chip" data-quick="today">오늘</button>
+      <button type="button" class="chip" data-quick="tomorrow">내일</button>
+      <button type="button" class="chip" data-quick="weekend">이번 주말</button>
+      <button type="button" class="chip" data-quick="all">전체보기</button>
+      <input type="date" id="dateFilter">
+    </div>
+    <div class="count-row">
+      <span class="count-text" id="countText">불러오는 중...</span>
+      <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
+    </div>
   </div>
 </div>
 <div class="main-layout">
@@ -711,11 +728,33 @@
     }
   }
 
-  // ---------- 모바일 바텀시트 ----------
-  function collapseSheet() { document.getElementById('listPanel').classList.remove('expanded'); }
-  function expandSheet() { document.getElementById('listPanel').classList.add('expanded'); }
+  // ---------- 모바일: 하단 목록 시트 + 상단 필터 메뉴 ----------
+  // 목록을 펼치면 화면을 더 내주려고 상단 필터 메뉴를 같이 접고, 목록을 접으면 다시
+  // 펼쳐서 되돌린다. 상단 메뉴 자체도 (목록과 별개로) 손으로 접었다 펼 수 있다.
+  function setTopbarCollapsed(collapsed) {
+    if (window.innerWidth > 768) return; // 데스크톱은 항상 펼쳐진 상태 유지
+    document.getElementById('topbar').classList.toggle('collapsed', collapsed);
+    document.getElementById('topbarToggle').textContent = collapsed ? '▼' : '▲';
+  }
+
+  function collapseSheet() {
+    document.getElementById('listPanel').classList.remove('expanded');
+    setTopbarCollapsed(false);
+  }
+
+  function expandSheet() {
+    document.getElementById('listPanel').classList.add('expanded');
+    setTopbarCollapsed(true);
+  }
+
   document.getElementById('sheetHandle').addEventListener('click', () => {
-    document.getElementById('listPanel').classList.toggle('expanded');
+    const expanded = document.getElementById('listPanel').classList.contains('expanded');
+    if (expanded) collapseSheet(); else expandSheet();
+  });
+
+  document.getElementById('topbarToggle').addEventListener('click', () => {
+    const nowCollapsed = !document.getElementById('topbar').classList.contains('collapsed');
+    setTopbarCollapsed(nowCollapsed);
   });
 
   function initFilters(places) {
