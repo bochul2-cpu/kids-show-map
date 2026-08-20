@@ -604,6 +604,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   function placesInViewport(list) {{
     const bounds = map.getBounds();
     if (!bounds) return list;
+    const sw = bounds.getSW(), ne = bounds.getNE();
+    if (sw.lat() === ne.lat() && sw.lng() === ne.lng()) return list; // 지도가 아직 실제 크기로 자리잡기 전(면적 0) - 필터링하지 않고 다음 bounds_changed에서 바로잡는다
     return list.filter(p => bounds.hasLatLng(new naver.maps.LatLng(p.lat, p.lon)));
   }}
 
