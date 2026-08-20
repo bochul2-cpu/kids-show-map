@@ -541,6 +541,10 @@
       { value: '영남권', label: '영남권' },
       { value: '제주권', label: '제주권' },
     ], panToRegion);
+    // 전체(전국 5천여 건)를 첫 화면부터 다 그리면 마커/클러스터 계산량이 커서 느리다.
+    // 기본 지도 중심(부천)이 속한 수도권을 기본 선택해 첫 렌더를 가볍게 하고,
+    // GPS 위치를 구하면 그 권역으로 다시 좁혀진다 (아래 geolocation 콜백).
+    setActiveChip(document.getElementById('regionChipRow'), '수도권');
 
     const CATEGORY_ORDER = [
       '공연·전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이',
