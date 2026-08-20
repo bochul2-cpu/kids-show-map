@@ -49,10 +49,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .prf-popup dl {{ margin: 6px 0 0; font-size: 12.5px; color: #444; }}
   .prf-popup dt {{ font-weight: 600; float: left; width: 44px; clear: left; color: #888; }}
   .prf-popup dd {{ margin: 0 0 3px 48px; }}
-  .prf-popup a.link-btn {{
-    display: block; text-align: center; margin-top: 8px; padding: 6px 0;
-    background: #5b4fe0; color: white; border-radius: 6px; text-decoration: none; font-size: 13px;
+  .prf-popup .btn-row {{ display: flex; gap: 6px; margin-top: 8px; }}
+  .prf-popup .btn-row a, .prf-popup .btn-row button {{
+    flex: 1; text-align: center; padding: 6px 0; border: none; border-radius: 6px;
+    text-decoration: none; font-size: 13px; cursor: pointer; font-family: inherit;
   }}
+  .prf-popup .link-btn {{ background: #5b4fe0; color: white; }}
+  .prf-popup .directions-btn {{ background: #eef2ff; color: #3b4bcc; }}
 </style>
 </head>
 <body>
@@ -62,6 +65,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
   const places = {places_json};
+
+  // 네이버지도 앱으로 "여기서부터(현재위치) 길찾기"를 연다. 앱이 없으면 웹 지도로 대체.
+  window.openDirections = function (lat, lon, encodedName) {{
+    const appUrl = `nmap://route/car?dlat=${{lat}}&dlng=${{lon}}&dname=${{encodedName}}&appname=kidsshowmap.bochul2`;
+    const webUrl = `https://map.naver.com/p?title=${{encodedName}}&lat=${{lat}}&lng=${{lon}}`;
+    const start = Date.now();
+    window.location.href = appUrl;
+    setTimeout(() => {{
+      if (Date.now() - start < 2000) window.location.href = webUrl;
+    }}, 1200);
+  }};
 
   // 첫 화면은 부천시 전역이 보이도록 고정 (지도 조작으로 다른 지역도 볼 수 있음)
   const BUCHEON_BOUNDS = [[37.454, 126.712], [37.578, 126.860]];
@@ -122,7 +136,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           (p.schedule ? `<dt>시간</dt><dd>${{p.schedule}}</dd>` : '') +
           (p.telephone ? `<dt>전화</dt><dd>${{p.telephone}}</dd>` : '') +
         `</dl>` +
-        `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">예매/상세보기</a>` +
+        `<div class="btn-row">` +
+          `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">예매/상세보기</a>` +
+          `<button class="directions-btn" onclick="openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
+        `</div>` +
       `</div>`,
       {{ maxWidth: 260 }}
     );
