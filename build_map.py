@@ -193,6 +193,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .prf-popup h3 {{ font-size: 15px; margin: 0 0 4px; line-height: 1.3; }}
   .prf-popup .genre {{ display: inline-block; font-size: 11px; background: #fff1ea; color: #d85c30; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }}
   .prf-popup .approx {{ display: inline-block; font-size: 11px; background: #fff4e5; color: #b26a00; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; margin-left: 4px; }}
+  .closed-badge {{ display: inline-block; font-size: 11px; background: #fdeaea; color: #c0392b; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; margin-left: 4px; }}
+  .list-card .closed-note {{ font-size: 10.5px; color: #c0392b; font-weight: 600; margin-top: 2px; }}
   .prf-popup dl {{ margin: 6px 0 0; font-size: 12.5px; color: #444; }}
   .prf-popup dt {{ font-weight: 600; float: left; width: 44px; clear: left; color: #999; }}
   .prf-popup dd {{ margin: 0 0 3px 48px; }}
@@ -212,7 +214,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .prf-popup {{ width: 168px; padding: 8px; }}
     .prf-popup img {{ height: 84px; margin-bottom: 4px; }}
     .prf-popup h3 {{ font-size: 12.5px; margin-bottom: 3px; }}
-    .prf-popup .genre, .prf-popup .approx {{ font-size: 9.5px; padding: 1px 6px; }}
+    .prf-popup .genre, .prf-popup .approx, .prf-popup .closed-badge {{ font-size: 9.5px; padding: 1px 6px; }}
     .prf-popup dl {{ font-size: 10.5px; }}
     .prf-popup .price-note {{ font-size: 9px; }}
     .prf-popup dt {{ width: 34px; }}
@@ -432,10 +434,34 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   // 상설 장소(공원/캠핑장/동물원 등)는 항상 열려있어서 기간 대신 운영시간/입장료/상세보기가 맞는다
   function isTimeBound(p) {{ return p.type === 'performance' || p.category === '축제'; }}
 
+  // "09:00~18:00"처럼 시:분~시:분 형식이 명확하게 하나만 보일 때만 지금 운영시간이
+  // 지났는지 판단한다. 요일별로 다르거나("화-일 10-18, 월 휴관") 예외가 섞인 복잡한
+  // 문구까지 정규식으로 해석하려 들면 실제로 열려있는 곳을 잘못 닫혔다고 판단할
+  // 위험이 커서, 확실한 경우가 아니면 아예 판단하지 않는다(배지를 안 띄운다).
+  function parseSimpleHours(scheduleText) {{
+    if (!scheduleText) return null;
+    const m = scheduleText.match(/(\d{{1,2}}):(\d{{2}})\s*[~\-–]\s*(\d{{1,2}}):(\d{{2}})/);
+    if (!m) return null;
+    const openMin = Number(m[1]) * 60 + Number(m[2]);
+    let closeMin = Number(m[3]) * 60 + Number(m[4]);
+    if (closeMin <= openMin) closeMin += 24 * 60; // 자정 넘겨서 닫는 경우(예: 22:00~02:00)
+    return {{ openMin, closeMin }};
+  }}
+
+  function isLikelyClosedNow(p) {{
+    if (isTimeBound(p)) return false; // 공연/축제는 기간·회차가 따로 있어 여기서는 판단 안 함
+    const hours = parseSimpleHours(p.schedule);
+    if (!hours) return false;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    return nowMin < hours.openMin || nowMin > hours.closeMin;
+  }}
+
   function buildPopupHtml(p) {{
     const timeBound = isTimeBound(p);
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
     const approxHtml = p.approx_location ? `<span class="approx">위치 대략</span>` : '';
+    const closedHtml = isLikelyClosedNow(p) ? `<span class="closed-badge">⏰ 지금은 운영시간이 지났을 수 있어요</span>` : '';
     const priceLabel = p.type === 'performance' ? '정가' : '입장료';
     const priceNote = p.type === 'performance' ? `<br><span class="price-note">실제 예매가는 다를 수 있어요</span>` : '';
     const linkLabel = timeBound ? '예매/상세보기' : '상세보기';
@@ -444,7 +470,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         `<button type="button" class="popup-close" onclick="window.__closeInfoWindow()">×</button>` +
         `<button type="button" class="popup-fav" onclick="toggleFavoriteUI(this, '${{p.id}}')">${{isFavorite(p.id) ? '❤️' : '🤍'}}</button>` +
         posterHtml +
-        `<span class="genre">${{p.genre}}</span>` + approxHtml +
+        `<span class="genre">${{p.genre}}</span>` + approxHtml + closedHtml +
         `<h3>${{p.title}}</h3>` +
         `<dl>` +
           (timeBound ? `<dt>기간</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` : '') +
@@ -528,6 +554,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             (timeBound ? `<div class="meta">${{p.start_date}} ~ ${{p.end_date}}</div>` : '') +
             `<div class="meta">${{p.venue}}</div>` +
             (p.price ? `<div class="price">${{p.price}}</div>` : '') +
+            (isLikelyClosedNow(p) ? `<div class="closed-note">⏰ 운영시간 지남</div>` : '') +
             `<div class="btn-row">` +
               `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${{timeBound ? '예매' : '상세'}}</a>` +
               `<button class="directions-btn" onclick="event.stopPropagation(); openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
