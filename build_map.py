@@ -55,6 +55,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .region-row .chip.active {{ background: #17a893; border-color: #17a893; color: white; }}
   .cat-row .chip.active {{ background: #ff7a50; border-color: #ff7a50; color: white; }}
   .amenity-row .chip.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
+  .radius-row .chip.active {{ background: #7b61ff; border-color: #7b61ff; color: white; }}
   .date-row {{ display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }}
   .date-row .chip.active {{ background: #ffb100; border-color: #ffb100; color: white; }}
   .date-row input[type=date] {{
@@ -196,6 +197,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div class="chip-row region-row" id="regionChipRow"></div>
   <div class="chip-row cat-row" id="catChipRow"></div>
   <div class="chip-row amenity-row" id="amenityChipRow"></div>
+  <div class="chip-row radius-row" id="radiusRow" style="display:none;">
+    <button type="button" class="chip active" data-radius="">반경 전체</button>
+    <button type="button" class="chip" data-radius="5">5km</button>
+    <button type="button" class="chip" data-radius="10">10km</button>
+    <button type="button" class="chip" data-radius="20">20km</button>
+  </div>
   <div class="date-row">
     <button type="button" class="chip" data-quick="today">오늘</button>
     <button type="button" class="chip" data-quick="tomorrow">내일</button>
@@ -538,6 +545,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   let showFavoritesOnly = false;
   const AMENITIES = ['기저귀교환대', '수유실', '주차장', '유모차대여'];
   let selectedAmenities = new Set();
+  let userPosition = null; // GPS 성공 시에만 채워진다 - 반경 필터의 기준점
+  let selectedRadiusKm = null;
+
+  function haversineKm(lat1, lon1, lat2, lon2) {{
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }}
 
   function applyFilters() {{
     closePopup(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
@@ -566,6 +584,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         for (const a of selectedAmenities) {{ if (!have.includes(a)) return false; }}
         return true;
       }});
+    }}
+    if (selectedRadiusKm && userPosition) {{
+      filtered = filtered.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= selectedRadiusKm);
     }}
     if (dateVal) {{
       const [y, m, d] = dateVal.split('-').map(Number);
@@ -670,6 +691,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }});
     }});
 
+    // 반경 필터는 GPS로 실제 내 위치를 알아야 의미가 있어서, geolocation이 성공했을 때만
+    // (fetch().then() 아래 콜백에서) 이 줄을 보여준다. 그 전까진 숨겨둔다.
+    const radiusRow = document.getElementById('radiusRow');
+    radiusRow.querySelectorAll('.chip').forEach(btn => {{
+      btn.addEventListener('click', () => {{
+        radiusRow.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const v = btn.dataset.radius;
+        selectedRadiusKm = v ? Number(v) : null;
+        applyFilters();
+      }});
+    }});
+
     document.getElementById('dateFilter').addEventListener('change', applyFilters);
     document.querySelectorAll('.date-row .chip').forEach(btn => {{
       btn.addEventListener('click', () => {{
@@ -729,6 +763,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         navigator.geolocation.getCurrentPosition(
           pos => {{
             const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            userPosition = {{ lat, lon }};
+            document.getElementById('radiusRow').style.display = 'flex';
             map.setCenter(new naver.maps.LatLng(lat, lon));
             map.setZoom(13);
             const group = pickRegionGroup(lat, lon);
