@@ -76,12 +76,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border-radius: 16px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
   }}
   .cat-row .chip.active {{ background: #ff7a50; border-color: #ff7a50; color: white; }}
-  .amenity-row .chip.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
   .radius-row .chip.active {{ background: #7b61ff; border-color: #7b61ff; color: white; }}
-  .more-filters-toggle {{
-    display: none; width: 100%; text-align: left; background: none; border: none;
-    color: #999; font-size: 11.5px; padding: 2px 0 6px; cursor: pointer; font-family: inherit;
-  }}
   .date-row {{
     display: flex; align-items: center; gap: 6px; margin-top: 6px;
     flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -95,24 +90,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .date-row input[type=date]::-webkit-calendar-picker-indicator {{ cursor: pointer; }}
   .count-row {{ display: flex; align-items: center; justify-content: space-between; margin-top: 6px; gap: 8px; }}
   .count-text {{ font-size: 11.5px; color: #999; }}
-  .count-row-toggles {{ display: flex; gap: 6px; }}
   .fav-filter-btn {{
     flex-shrink: 0; border: 1.5px solid #ffcbd8; background: white; color: #e0507a;
     border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
   }}
   .fav-filter-btn.active {{ background: #ff5c8a; border-color: #ff5c8a; color: white; }}
-  .recent-filter-btn {{
-    flex-shrink: 0; border: 1.5px solid #c9dcf5; background: white; color: #4a76b8;
-    border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
-  }}
-  .recent-filter-btn.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
 
   /* ---------- 데스크톱: 넓은 화면에서 칩 줄들이 한 줄에 눌린 채로 옆에 빈 공백만
      길게 남던 문제 - 가로 스크롤 대신 줄바꿈으로 실제 너비를 채우고, 상단바
      내용물 자체도 너무 넓게 늘어지지 않게 적당한 최대 너비로 묶는다. */
   @media (min-width: 769px) {{
     .topbar-body {{ max-width: 900px; }}
-    .chip-row, .date-row, .reco-scroll {{
+    .chip-row, .date-row {{
       flex-wrap: wrap; overflow-x: visible; padding-bottom: 0;
     }}
   }}
@@ -129,34 +118,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .locate-btn:active {{ background: #fff1ea; }}
 
-  .surprise-btn {{
-    position: absolute; left: 12px; bottom: 56px; z-index: 25;
-    border: none; border-radius: 20px; padding: 10px 16px;
-    background: linear-gradient(160deg, #ffab7a, #ff7a50); color: white;
-    font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
-    box-shadow: 0 2px 10px rgba(255,122,80,0.5);
-  }}
-  .surprise-btn:active {{ filter: brightness(0.95); }}
-
   .list-panel {{
     width: 380px; flex-shrink: 0; background: #fff8f3; overflow-y: auto;
     border-right: 1px solid #ffe1d0;
   }}
   .list-items {{ padding: 8px; }}
-
-  /* 추천은 목록(필터 결과)이랑 섞이면 뭐가 뭔지 헷갈린다는 피드백으로 목록 패널에서는
-     뺐고, 지도 위에 떠 있게 했더니 이번엔 붕 떠서 애매하다는 피드백으로 다시 상단
-     메뉴(필터 바) 안에 고정된 한 줄로 자리잡았다 - 옅은 색 배경으로 필터 칩들과는
-     구분되게. */
-  .reco-section {{
-    margin-top: 8px; padding: 8px 10px; background: #fff1ea; border-radius: 10px;
-  }}
-  .reco-title {{ font-size: 12.5px; font-weight: 700; color: #d85c30; margin-bottom: 6px; }}
-  .reco-scroll {{ display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }}
-  .reco-card {{ flex: 0 0 auto; width: 110px; cursor: pointer; }}
-  .reco-card .thumb {{ width: 110px; height: 74px; border-radius: 8px; object-fit: cover; background: #ffe9dd; display: block; }}
-  .reco-card .thumb.no-img {{ display: flex; align-items: center; justify-content: center; font-size: 22px; }}
-  .reco-card h5 {{ font-size: 11.5px; margin: 4px 0 0; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: #333; }}
   .empty-msg {{ text-align: center; color: #bbb; font-size: 13px; padding: 40px 20px; }}
 
   .list-card {{
@@ -194,12 +160,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
     .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
-    .surprise-btn {{ bottom: 64px; font-size: 12px; padding: 9px 13px; }}
-    /* 편의시설/반경 필터는 자주 안 쓰는 것들이라 모바일 상단바가 너무 길어지지 않게
-       기본은 접어두고, "상세 필터" 버튼으로 펼칠 수 있게 한다 (데스크톱은 그대로 펼쳐둠). */
-    .more-filters-toggle {{ display: block; }}
-    .extra-filters {{ display: none; }}
-    .extra-filters.expanded {{ display: block; }}
 
     /* 상단 필터 메뉴 전체를 접었다 폈다 할 수 있게 한다 (모바일 전용) - 목록을
        "목록 보기"로 펼치면 자동으로 접혀서 지도/목록에 화면을 더 내준다.
@@ -311,15 +271,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <input type="text" id="searchBox" placeholder="장소명/지역명 검색">
     </div>
     <div class="chip-row cat-row" id="catChipRow"></div>
-    <button type="button" class="more-filters-toggle" id="moreFiltersToggle">🔧 상세 필터 더보기 ▾</button>
-    <div class="extra-filters" id="extraFilters">
-      <div class="chip-row amenity-row" id="amenityChipRow"></div>
-      <div class="chip-row radius-row" id="radiusRow" style="display:none;">
-        <button type="button" class="chip active" data-radius="">반경 전체</button>
-        <button type="button" class="chip" data-radius="5">5km</button>
-        <button type="button" class="chip" data-radius="10">10km</button>
-        <button type="button" class="chip" data-radius="20">20km</button>
-      </div>
+    <div class="chip-row radius-row" id="radiusRow" style="display:none;">
+      <button type="button" class="chip active" data-radius="">반경 전체</button>
+      <button type="button" class="chip" data-radius="5">5km</button>
+      <button type="button" class="chip" data-radius="10">10km</button>
+      <button type="button" class="chip" data-radius="20">20km</button>
     </div>
     <div class="date-row">
       <button type="button" class="chip" data-quick="today">오늘</button>
@@ -328,16 +284,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <button type="button" class="chip" data-quick="all">전체보기</button>
       <input type="date" id="dateFilter">
     </div>
-    <div class="reco-section" id="recoSection" style="display:none;">
-      <div class="reco-title" id="recoTitle"></div>
-      <div class="reco-scroll" id="recoScroll"></div>
-    </div>
     <div class="count-row">
       <span class="count-text" id="countText">불러오는 중...</span>
-      <div class="count-row-toggles">
-        <button type="button" class="recent-filter-btn" id="recentFilterBtn">🕒 최근 본 곳</button>
-        <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
-      </div>
+      <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
     </div>
   </div>
 </div>
@@ -348,7 +297,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
   <div id="map"></div>
   <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
-  <button type="button" class="surprise-btn" id="surpriseBtn">🎲 오늘은 여기 어때?</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
@@ -406,26 +354,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (btn) btn.textContent = nowFav ? '❤️' : '🤍';
     if (showFavoritesOnly && !nowFav) applyFilters();
   }};
-
-  // ---------- 최근 본 곳 (역시 device id 기반, 즐겨찾기와 같은 마이그레이션 이유) ----------
-  const RECENT_LIMIT = 20;
-  function recentStorageKey() {{ return `kids_map_recent_${{getDeviceId()}}`; }}
-
-  function getRecentIds() {{
-    try {{
-      return JSON.parse(localStorage.getItem(recentStorageKey()) || '[]');
-    }} catch (e) {{
-      return [];
-    }}
-  }}
-
-  // 마커/목록/추천 카드 어디서 열든 - 팝업이 열리는 순간을 "봤다"로 친다.
-  function recordRecentlyViewed(p) {{
-    let ids = getRecentIds().filter(id => id !== p.id);
-    ids.unshift(p.id);
-    ids = ids.slice(0, RECENT_LIMIT);
-    localStorage.setItem(recentStorageKey(), JSON.stringify(ids));
-  }}
 
   const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 (GPS 거부/실패 시 기본값)
   const map = new naver.maps.Map('map', {{
@@ -639,14 +567,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       icon: pinIconFor(p),
     }});
     naver.maps.Event.addListener(marker, 'click', function () {{
-      recordRecentlyViewed(p);
       openPopupAt(marker.getPosition(), marker, buildPopupHtml(p));
     }});
     return marker;
   }}
 
   function openFromList(p) {{
-    recordRecentlyViewed(p);
     const pos = new naver.maps.LatLng(p.lat, p.lon);
     // 목록에서 고른 항목은 현재 지도 화면 밖에 있을 수 있다 - 줌만 바꾸면 마커가
     // 화면 어딘가 엉뚱한(심지어 화면 밖) 위치에 놓인 채로 팝업 위치를 계산하게 돼서
@@ -743,77 +669,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return list.filter(p => bounds.hasLatLng(new naver.maps.LatLng(p.lat, p.lon)));
   }}
 
-  // 이번 주말(토~일, 오늘이 이미 주말이면 오늘 포함) 범위와 겹치는 시간제한 장소
-  // (공연/축제) + 지금 계절에 맞는 상시 카테고리(여름 물놀이/겨울 스키/그 외 나들이)를
-  // 섞어서 추천 카드로 보여준다. 지도를 어디로 옮기든 안 바뀌게, 현재 위치(GPS) 기준
-  // 반경 10km 안으로만 좁힌다 - 뷰포트 기준이면 지도 패닝할 때마다 추천이 계속 바뀌어서
-  // "그냥 가까운 데 뜨는 목록"처럼 느껴진다는 피드백으로 GPS 기준으로 고정.
-  // 날씨 기반 추천은 아직 날씨 API 키가 없어서 못 넣었다 - 요일(주말 여부)만 반영.
-  // 연령대별 추천은 age 필드가 "전체 관람가"/"8세 이상" 같은 자유 텍스트라 구조화가 안 돼
-  // 있어 이번에도 계절+주말 기준으로만 구성했다.
-  const RECO_RADIUS_KM = 10;
-
-  function computeRecommendations() {{
-    if (!userPosition) return {{ combined: [], seasonalCategory: null }};
-    const nearby = allPlaces.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= RECO_RADIUS_KM);
-
-    const today = new Date();
-    const day = today.getDay(); // 0=일, 6=토
-    let sat;
-    if (day === 6) {{
-      sat = new Date(today); // 오늘이 토요일
-    }} else if (day === 0) {{
-      sat = new Date(today); sat.setDate(sat.getDate() - 1); // 오늘이 일요일 - 어제(토)부터
-    }} else {{
-      sat = new Date(today); sat.setDate(sat.getDate() + (6 - day)); // 평일 - 다가오는 토요일
-    }}
-    sat.setHours(0, 0, 0, 0);
-    const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
-
-    const weekendPicks = nearby.filter(p => {{
-      if (!isTimeBound(p)) return false;
-      const start = toDateObj(p.start_date), end = toDateObj(p.end_date);
-      return start && end && sat <= end && sun >= start;
-    }});
-
-    const month = today.getMonth() + 1;
-    let seasonalCategory = '나들이·산책';
-    if (SEASONAL_CATEGORIES['물놀이'].includes(month)) seasonalCategory = '물놀이';
-    else if (SEASONAL_CATEGORIES['스키·눈썰매'].includes(month)) seasonalCategory = '스키·눈썰매';
-    const seasonalPicks = nearby.filter(p => p.category === seasonalCategory);
-
-    const seen = new Set();
-    const combined = [];
-    [...weekendPicks, ...seasonalPicks].forEach(p => {{
-      if (!seen.has(p.id) && combined.length < 10) {{ seen.add(p.id); combined.push(p); }}
-    }});
-    return {{ combined, seasonalCategory }};
-  }}
-
-  function renderRecommendations() {{
-    const {{ combined, seasonalCategory }} = computeRecommendations();
-    const section = document.getElementById('recoSection');
-    if (combined.length === 0) {{ section.style.display = 'none'; return; }}
-    section.style.display = 'block';
-    document.getElementById('recoTitle').textContent = `🌟 내 주변(${{RECO_RADIUS_KM}}km) · ${{seasonalCategory}} 추천`;
-    document.getElementById('recoScroll').innerHTML = combined.map((p, i) => {{
-      const thumb = p.poster
-        ? `<img class="thumb" src="${{p.poster}}" alt="">`
-        : `<div class="thumb no-img">${{iconFor(p)}}</div>`;
-      return `<div class="reco-card" data-reco-idx="${{i}}">${{thumb}}<h5>${{p.title}}</h5></div>`;
-    }}).join('');
-    document.getElementById('recoScroll').querySelectorAll('.reco-card').forEach(el => {{
-      el.addEventListener('click', () => openFromList(combined[Number(el.dataset.recoIdx)]));
-    }});
-  }}
-
-  function updateMoreFiltersLabel() {{
-    const btn = document.getElementById('moreFiltersToggle');
-    const expanded = document.getElementById('extraFilters').classList.contains('expanded');
-    const activeCount = selectedAmenities.size + (selectedRadiusKm ? 1 : 0);
-    const suffix = activeCount > 0 ? ` (${{activeCount}}개 적용됨)` : '';
-    btn.textContent = `🔧 상세 필터${{suffix}} ${{expanded ? '접기 ▲' : '더보기 ▾'}}`;
-  }}
 
   function activeValue(rowEl) {{
     const active = rowEl.querySelector('.chip.active');
@@ -822,9 +677,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   let searchQuery = '';
   let showFavoritesOnly = false;
-  let showRecentOnly = false;
-  const AMENITIES = ['기저귀교환대', '수유실', '주차장', '유모차대여'];
-  let selectedAmenities = new Set();
   let userPosition = null; // GPS 성공 시에만 채워진다 - 반경 필터의 기준점
   let selectedRadiusKm = null;
 
@@ -855,20 +707,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const favIds = getFavoriteIds();
       filtered = filtered.filter(p => favIds.has(p.id));
     }}
-    if (showRecentOnly) {{
-      // 그냥 필터링만 하면 원래 데이터 순서로 나와서 "최근"이라는 의미가 없다 -
-      // 최근 본 순서 그대로 정렬까지 해준다.
-      const order = new Map(getRecentIds().map((id, i) => [id, i]));
-      filtered = filtered.filter(p => order.has(p.id));
-      filtered = filtered.slice().sort((a, b) => order.get(a.id) - order.get(b.id));
-    }}
-    if (selectedAmenities.size > 0) {{
-      filtered = filtered.filter(p => {{
-        const have = p.amenities || [];
-        for (const a of selectedAmenities) {{ if (!have.includes(a)) return false; }}
-        return true;
-      }});
-    }}
     if (selectedRadiusKm && userPosition) {{
       filtered = filtered.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= selectedRadiusKm);
     }}
@@ -891,11 +729,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         (p.address || '').toLowerCase().includes(q)
       );
     }}
-    // 검색 중이거나 "찜한 곳만"/"최근 본 곳"을 보는 중일 땐 지금 지도 화면 밖에 있는
-    // 것도 나와야 의미가 있어서 뷰포트 제한을 건너뛴다 - 지역 칩이 있던 시절엔 없던
-    // 문제였는데, 뷰포트가 유일한 지리적 필터가 되면서 "찜한 곳만 눌렀는데 0건"처럼
-    // 결과가 안 보이는 게 검색에서 이미 한 번 겪은 것과 똑같은 원인이었다.
-    const bypassViewport = searchQuery || showFavoritesOnly || showRecentOnly;
+    // 검색 중이거나 "찜한 곳만"을 보는 중일 땐 지금 지도 화면 밖에 있는 것도 나와야
+    // 의미가 있어서 뷰포트 제한을 건너뛴다 - 지역 칩이 있던 시절엔 없던 문제였는데,
+    // 뷰포트가 유일한 지리적 필터가 되면서 "찜한 곳만 눌렀는데 0건"처럼 결과가 안
+    // 보이는 게 검색에서 이미 한 번 겪은 것과 똑같은 원인이었다.
+    const bypassViewport = searchQuery || showFavoritesOnly;
     if (bypassViewport) {{
       if (filtered.length > 0 && filtered.length <= 200) {{
         const bounds = new naver.maps.LatLngBounds();
@@ -915,7 +753,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       renderMarkers(filtered);
       renderList(filtered);
     }}
-    renderRecommendations();
     const label = document.getElementById('sheetLabel');
     if (label) label.textContent = `목록 보기 (${{filtered.length}}건)`;
     document.getElementById('countText').textContent = tooMany
@@ -996,22 +833,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const catItems = categories.map(c => ({{ value: c, label: (CATEGORY_ICONS[c] || '🎫') + ' ' + c }}));
     initChipRow(document.getElementById('catChipRow'), catItems);
 
-    // 편의시설은 region/category와 달리 여러 개를 동시에 켤 수 있어야 해서(기저귀교환대
-    // + 주차장처럼 같이 필요한 경우) initChipRow의 단일선택 구조 대신 따로 만든다.
-    // 참고: 지금 수집 데이터엔 편의시설 정보가 전혀 없어서(자동 수집 불가 항목),
-    // 이 필터를 켜면 당장은 결과가 0건으로 나온다 - 나중에 수동으로 채워 넣을 자리다.
-    const amenityRow = document.getElementById('amenityChipRow');
-    amenityRow.innerHTML = AMENITIES.map(a => `<button type="button" class="chip" data-value="${{a}}">${{a}}</button>`).join('');
-    amenityRow.querySelectorAll('.chip').forEach(btn => {{
-      btn.addEventListener('click', () => {{
-        const v = btn.dataset.value;
-        if (selectedAmenities.has(v)) selectedAmenities.delete(v); else selectedAmenities.add(v);
-        btn.classList.toggle('active');
-        applyFilters();
-        updateMoreFiltersLabel();
-      }});
-    }});
-
     // 반경 필터는 GPS로 실제 내 위치를 알아야 의미가 있어서, geolocation이 성공했을 때만
     // (fetch().then() 아래 콜백에서) 이 줄을 보여준다. 그 전까진 숨겨둔다.
     const radiusRow = document.getElementById('radiusRow');
@@ -1022,19 +843,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const v = btn.dataset.radius;
         selectedRadiusKm = v ? Number(v) : null;
         applyFilters();
-        updateMoreFiltersLabel();
       }});
     }});
-
-    // 편의시설/반경은 모바일에서 기본 접혀있다 - 지금 몇 개가 적용돼 있는지 버튼
-    // 라벨에 표시해서, 접힌 상태에서도 필터가 걸려있다는 걸 놓치지 않게 한다.
-    const moreFiltersToggle = document.getElementById('moreFiltersToggle');
-    const extraFilters = document.getElementById('extraFilters');
-    moreFiltersToggle.addEventListener('click', () => {{
-      extraFilters.classList.toggle('expanded');
-      updateMoreFiltersLabel();
-    }});
-    updateMoreFiltersLabel();
 
     document.getElementById('dateFilter').addEventListener('change', applyFilters);
     document.querySelectorAll('.date-row .chip').forEach(btn => {{
@@ -1080,12 +890,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     document.getElementById('favFilterBtn').addEventListener('click', () => {{
       showFavoritesOnly = !showFavoritesOnly;
       document.getElementById('favFilterBtn').classList.toggle('active', showFavoritesOnly);
-      applyFilters();
-    }});
-
-    document.getElementById('recentFilterBtn').addEventListener('click', () => {{
-      showRecentOnly = !showRecentOnly;
-      document.getElementById('recentFilterBtn').classList.toggle('active', showRecentOnly);
       applyFilters();
     }});
   }}
@@ -1137,23 +941,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     goToCurrentLocation(15, () => {{
       alert('위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.');
     }});
-  }});
-
-  // "오늘은 여기 어때?" - GPS가 있으면 내 주변 10km, 없으면 전체 중에서 아무 데나
-  // 하나 골라준다. 지금 문 닫았을 가능성이 있는 곳은 최대한 피하되, 그것 때문에
-  // 후보가 아예 없어지면(예: 야심한 시각) 그냥 전체 후보에서 고른다.
-  document.getElementById('surpriseBtn').addEventListener('click', () => {{
-    const basePool = userPosition
-      ? allPlaces.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= 10)
-      : allPlaces;
-    if (basePool.length === 0) {{
-      alert('주변에 추천할 곳이 없어요. 지도를 옮기거나 현재 위치를 다시 확인해보세요!');
-      return;
-    }}
-    const openPool = basePool.filter(p => !isLikelyClosedNow(p));
-    const pool = openPool.length > 0 ? openPool : basePool;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    openFromList(pick);
   }});
 
   fetch('data/places.json')
