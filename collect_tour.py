@@ -21,12 +21,18 @@ from settings import (
     TOUR_DATA_PATH,
 )
 from config import TOUR_API_KEY
-from collect import request_with_retry, clean_telno, to_https
+from collect import clean_telno, to_https
 
 REQUEST_DELAY = 0.05
 ALWAYS_OPEN_START = "2000.01.01"
 ALWAYS_OPEN_END = "2099.12.31"
 KST = timezone(timedelta(hours=9))
+
+TOUR_RETRY_ATTEMPTS = 3
+# 429(트래픽 한도 초과)는 request_with_retry의 기본 backoff(0.5~1.5초)로는 전혀 안 풀린다 -
+# 실제로 겪어보니 한 카테고리 전체(17개 지역)가 연속으로 429가 나도 몇 분 뒤 키워드 단계에
+# 가서는 다시 풀려있었다. 그래서 429를 만나면 훨씬 길게(30초) 쉬었다가 재시도한다.
+TOUR_429_BACKOFF_SECONDS = 30
 
 
 def tour_request(endpoint: str, params: dict) -> dict:
@@ -37,8 +43,24 @@ def tour_request(endpoint: str, params: dict) -> dict:
         "_type": "json",
         **params,
     }
-    response = request_with_retry(f"{TOUR_API_BASE_URL}/{endpoint}", full_params)
-    return response.json()["response"]["body"]
+    url = f"{TOUR_API_BASE_URL}/{endpoint}"
+    last_error = None
+    for attempt in range(TOUR_RETRY_ATTEMPTS):
+        try:
+            response = requests.get(url, params=full_params, timeout=15)
+            response.raise_for_status()
+            return response.json()["response"]["body"]
+        except requests.HTTPError as e:
+            last_error = e
+            if e.response is not None and e.response.status_code == 429:
+                print(f"[안내] TourAPI 429(트래픽 한도) - {TOUR_429_BACKOFF_SECONDS}초 대기 후 재시도 ({attempt + 1}/{TOUR_RETRY_ATTEMPTS})")
+                time.sleep(TOUR_429_BACKOFF_SECONDS)
+            else:
+                time.sleep(0.5 * (attempt + 1))
+        except requests.RequestException as e:
+            last_error = e
+            time.sleep(0.5 * (attempt + 1))
+    raise last_error
 
 
 def as_list(items) -> list[dict]:
@@ -313,8 +335,21 @@ def main():
     # KOPIS 공연(성능 데이터)만 남기고 이전 TourAPI 항목("tour_" 접두어)은 걷어낸 뒤
     # 새로 수집한 것으로 통째로 교체한다
     kopis_places = [p for p in existing["places"] if not str(p.get("id", "")).startswith("tour_")]
+    existing_tour_count = len(existing["places"]) - len(kopis_places)
 
     tour_places = collect_tour_places()
+
+    # 트래픽 한도 초과로 중간에 실패하면 결과가 확 줄어들 수 있는데(직접 겪음: 5080건 ->
+    # 3497건), 그걸로 기존의 더 완전한 데이터를 덮어쓰면 매일 밤 배치가 조용히 데이터를
+    # 갉아먹는 꼴이 된다. 새로 모은 게 기존보다 30% 이상 적으면 실패로 보고 교체하지 않는다.
+    if existing_tour_count > 0 and len(tour_places) < existing_tour_count * 0.7:
+        print(
+            f"[경고] 새로 수집한 TourAPI 데이터({len(tour_places)}건)가 기존"
+            f"({existing_tour_count}건)보다 크게 적습니다 - 아마 트래픽 한도 문제로 보고,"
+            f" 기존 데이터를 그대로 유지합니다."
+        )
+        return
+
     combined_places = kopis_places + tour_places
     _save(combined_places)
     print(f"TourAPI {len(tour_places)}건 (기존 대체) -> 총 {len(combined_places)}건 -> {TOUR_DATA_PATH}")
