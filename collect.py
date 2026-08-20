@@ -169,9 +169,16 @@ def build_place(detail: dict, facility: dict) -> dict:
         "schedule": detail.get("dtguidance", ""),
         "poster": detail.get("poster", ""),
         "link": detail.get("link") or f"https://www.kopis.or.kr/mob/db/pblprfrView.do?mt20Id={mt20id}",
-        "telephone": facility.get("telno", ""),
+        "telephone": clean_telno(facility.get("telno", "")),
         "approx_location": bool(facility.get("approx")),
     }
+
+
+def clean_telno(telno: str) -> str:
+    # KOPIS 데이터에 지역번호 없는 대표전화(1544/1661 등) 앞에 "00-"이 잘못 붙는 경우가 있다
+    if telno.startswith("00-"):
+        return telno[3:]
+    return telno
 
 
 def collect() -> list[dict]:
