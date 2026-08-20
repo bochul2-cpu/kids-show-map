@@ -518,8 +518,10 @@
     dateInput.addEventListener('keydown', (e) => e.preventDefault());
     dateInput.addEventListener('paste', (e) => e.preventDefault());
 
+    // 지역/카테고리 둘 다 "전체"를 없앴다 - 전국/모든 카테고리를 한 번에 뿌리면
+    // 마커·클러스터 계산량이 커서 느리기도 하고, "오늘 뭐 볼까" 용도로는 범위가
+    // 좁혀져 있는 게 더 쓸모 있다. 지역은 GPS로, 카테고리는 공연·전시로 시작한다.
     initChipRow(document.getElementById('regionChipRow'), [
-      { value: '', label: '전체' },
       { value: '수도권', label: '수도권' },
       { value: '충청권', label: '충청권' },
       { value: '강원권', label: '강원권' },
@@ -527,10 +529,6 @@
       { value: '영남권', label: '영남권' },
       { value: '제주권', label: '제주권' },
     ], panToRegion);
-    // 전체(전국 5천여 건)를 첫 화면부터 다 그리면 마커/클러스터 계산량이 커서 느리다.
-    // 기본 지도 중심(부천)이 속한 수도권을 기본 선택해 첫 렌더를 가볍게 하고,
-    // GPS 위치를 구하면 그 권역으로 다시 좁혀진다 (아래 geolocation 콜백).
-    setActiveChip(document.getElementById('regionChipRow'), '수도권');
 
     const CATEGORY_ORDER = [
       '공연·전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이',
@@ -538,10 +536,7 @@
     ];
     const presentCategories = new Set(places.map(p => p.category).filter(Boolean));
     const categories = CATEGORY_ORDER.filter(c => presentCategories.has(c)).filter(isInSeason);
-    const catItems = [
-      { value: '', label: '전체' },
-      ...categories.map(c => ({ value: c, label: (CATEGORY_ICONS[c] || '🎫') + ' ' + c })),
-    ];
+    const catItems = categories.map(c => ({ value: c, label: (CATEGORY_ICONS[c] || '🎫') + ' ' + c }));
     initChipRow(document.getElementById('catChipRow'), catItems);
 
     document.getElementById('dateFilter').addEventListener('change', applyFilters);
