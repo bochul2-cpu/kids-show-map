@@ -148,6 +148,15 @@ def naver_fallback_location(venue_name: str) -> dict | None:
     }
 
 
+def to_https(url: str) -> str:
+    # KOPIS 포스터가 http://로 내려오는 경우가 있다. HTTPS 페이지에 http:// <img>를
+    # 그대로 박으면 Mixed Content로 브라우저에 따라 이미지가 아예 안 뜰 수 있어서
+    # 스킴만 바꿔준다 (같은 호스트가 https도 지원함, www 붙은 건 https에서 리다이렉트됨).
+    if url.startswith("http://"):
+        return "https://" + url[len("http://"):]
+    return url
+
+
 def build_place(detail: dict, facility: dict) -> dict:
     mt20id = detail.get("mt20id", "")
     address = facility.get("adres", "")
@@ -169,7 +178,7 @@ def build_place(detail: dict, facility: dict) -> dict:
         "price": detail.get("pcseguidance", ""),
         "runtime": detail.get("prfruntime", ""),
         "schedule": detail.get("dtguidance", ""),
-        "poster": detail.get("poster", ""),
+        "poster": to_https(detail.get("poster", "")),
         "link": detail.get("link") or f"https://www.kopis.or.kr/mob/db/pblprfrView.do?mt20Id={mt20id}",
         "telephone": clean_telno(facility.get("telno", "")),
         "approx_location": bool(facility.get("approx")),

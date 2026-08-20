@@ -20,7 +20,7 @@ from settings import (
     TOUR_DATA_PATH,
 )
 from config import TOUR_API_KEY
-from collect import request_with_retry, clean_telno
+from collect import request_with_retry, clean_telno, to_https
 
 REQUEST_DELAY = 0.05
 ALWAYS_OPEN_START = "2000.01.01"
@@ -178,7 +178,7 @@ def build_tour_place(item: dict, category: str, genre_label: str, detail: dict, 
         "price": price,
         "runtime": "",
         "schedule": schedule,
-        "poster": item.get("firstimage", ""),
+        "poster": to_https(item.get("firstimage", "")),
         "link": build_link({**item, **detail}),
         "telephone": clean_telno(item.get("tel", "")),
         "approx_location": False,
