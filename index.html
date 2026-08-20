@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>공연 지도</title>
+<title>아이랑 공연</title>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-GJF3EHCV2F"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -12,82 +12,125 @@
   gtag('config', 'G-GJF3EHCV2F');
 </script>
 <style>
-  html, body { height: 100%; margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif; }
-  #map { height: 100%; width: 100%; }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%; margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden; background: #fff8f3;
+  }
 
-  .filter-bar {
-    position: absolute; top: 8px; left: 8px; right: 8px;
-    z-index: 1000; background: white; border-radius: 14px;
-    box-shadow: 0 1px 8px rgba(0,0,0,0.25); padding: 8px 10px;
+  /* ---------- 상단 바 ---------- */
+  .topbar {
+    flex-shrink: 0; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 10px 12px; z-index: 20; position: relative;
   }
-  .search-row { position: relative; margin-bottom: 6px; }
+  .brand { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .brand .logo { font-size: 18px; }
+  .brand h1 { font-size: 15px; margin: 0; color: #333; font-weight: 800; }
+  .brand .tagline { font-size: 11px; color: #aaa; margin-left: 4px; }
+
+  .search-row { position: relative; margin-bottom: 8px; }
   .search-row input {
-    width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 10px;
-    padding: 8px 10px; font-size: 13px;
+    width: 100%; border: 1.5px solid #ffe1d0; border-radius: 12px;
+    padding: 9px 12px; font-size: 13px; background: #fffaf7;
   }
+  .search-row input:focus { outline: none; border-color: #ff8a65; }
   .search-results {
     position: absolute; top: 100%; left: 0; right: 0; background: white;
     border: 1px solid #eee; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-    margin-top: 4px; max-height: 220px; overflow-y: auto; z-index: 1001; display: none;
+    margin-top: 4px; max-height: 240px; overflow-y: auto; z-index: 1001; display: none;
   }
   .search-results.show { display: block; }
-  .search-results div {
-    padding: 8px 10px; font-size: 12.5px; cursor: pointer; border-bottom: 1px solid #f2f2f2;
-  }
+  .search-results div { padding: 8px 10px; font-size: 12.5px; cursor: pointer; border-bottom: 1px solid #f2f2f2; }
   .search-results div:last-child { border-bottom: none; }
-  .search-results div:hover { background: #f5f4ff; }
+  .search-results div:hover { background: #fff1ea; }
   .search-results .sr-genre { color: #999; font-size: 11px; margin-left: 4px; }
 
-  .chip-row {
-    display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;
-    -webkit-overflow-scrolling: touch;
-  }
+  .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
   .chip-row::-webkit-scrollbar { height: 4px; }
+  .chip-row:last-child { padding-bottom: 0; }
   .chip {
-    flex: 0 0 auto; border: 1px solid #ddd; background: white; color: #555;
-    border-radius: 16px; padding: 5px 12px; font-size: 12.5px; cursor: pointer;
-    white-space: nowrap;
+    flex: 0 0 auto; border: 1.5px solid #eee; background: white; color: #666;
+    border-radius: 16px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
   }
-  .region-row .chip.active { background: #0aa66b; border-color: #0aa66b; color: white; }
-  .cat-row .chip.active { background: #5b4fe0; border-color: #5b4fe0; color: white; }
+  .region-row .chip.active { background: #17a893; border-color: #17a893; color: white; }
+  .cat-row .chip.active { background: #ff7a50; border-color: #ff7a50; color: white; }
   .date-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-  .date-row .chip.active { background: #e08a00; border-color: #e08a00; color: white; }
+  .date-row .chip.active { background: #ffb100; border-color: #ffb100; color: white; }
   .date-row input[type=date] {
-    border: 1px solid #ddd; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
-    accent-color: #5b4fe0; color: #555; cursor: pointer; background: #fafafa;
+    border: 1.5px solid #eee; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
+    accent-color: #ff7a50; color: #555; cursor: pointer; background: #fafafa;
   }
   .date-row input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
-  .count-text { margin-top: 6px; font-size: 11.5px; color: #888; }
+  .count-text { margin-top: 6px; font-size: 11.5px; color: #999; }
 
-  /* 커스텀 핀 마커 */
-  .prf-pin {
-    display: flex; flex-direction: column; align-items: center;
-    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35));
+  /* ---------- 본문: 목록 + 지도 ---------- */
+  .main-layout { flex: 1; display: flex; position: relative; overflow: hidden; }
+  #map { flex: 1; height: 100%; }
+
+  .list-panel {
+    width: 380px; flex-shrink: 0; background: #fff8f3; overflow-y: auto;
+    border-right: 1px solid #ffe1d0;
   }
+  .list-items { padding: 8px; }
+  .empty-msg { text-align: center; color: #bbb; font-size: 13px; padding: 40px 20px; }
+
+  .list-card {
+    display: flex; gap: 10px; background: white; border-radius: 12px; padding: 10px;
+    margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border: 1px solid transparent; transition: border-color .15s;
+  }
+  .list-card:hover { border-color: #ffcbb0; }
+  .list-card .thumb {
+    width: 68px; height: 68px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #ffe9dd;
+  }
+  .list-card .thumb.no-img { display: flex; align-items: center; justify-content: center; font-size: 26px; }
+  .list-card .info { min-width: 0; flex: 1; }
+  .list-card .genre {
+    display: inline-block; font-size: 10px; background: #fff1ea; color: #d85c30;
+    padding: 1px 7px; border-radius: 8px; margin-bottom: 3px;
+  }
+  .list-card h4 { font-size: 13.5px; margin: 0 0 3px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-card .meta { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-card .price { font-size: 11.5px; color: #ff7a50; font-weight: 700; margin-top: 2px; }
+
+  /* ---------- 모바일: 지도 위로 올라오는 바텀시트 ---------- */
+  @media (max-width: 768px) {
+    .brand .tagline { display: none; }
+    .list-panel {
+      position: absolute; left: 0; right: 0; bottom: 0; width: auto;
+      max-height: 78%; border-right: none; border-radius: 18px 18px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.18); z-index: 30;
+      transform: translateY(calc(100% - 46px)); transition: transform .28s ease;
+      display: flex; flex-direction: column;
+    }
+    .list-panel.expanded { transform: translateY(0); }
+    .sheet-handle {
+      flex-shrink: 0; text-align: center; padding: 10px; font-size: 12.5px; color: #666;
+      font-weight: 600; cursor: pointer; border-bottom: 1px solid #ffe9dd;
+    }
+    .sheet-handle .bar { width: 36px; height: 4px; background: #ffcbb0; border-radius: 2px; margin: 0 auto 6px; }
+    .list-items { overflow-y: auto; }
+  }
+
+  /* ---------- 커스텀 핀 마커 ---------- */
+  .prf-pin { display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); }
   .prf-pin .pin-badge {
     width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid white;
-    display: flex; align-items: center; justify-content: center; font-size: 16px;
-    line-height: 1;
+    background: linear-gradient(160deg, #ffab7a, #ff7a50);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
   }
-  .prf-pin .pin-tail {
-    width: 0; height: 0; margin-top: -3px;
-    border-left: 6px solid transparent; border-right: 6px solid transparent;
-  }
+  .prf-pin .pin-tail { width: 0; height: 0; margin-top: -3px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #ff7a50; }
 
-  /* 커스텀 클러스터 배지 */
   .cluster-badge {
     width: 36px; height: 36px; border-radius: 50%;
-    background: linear-gradient(160deg, #8b7cf6, #5b4fe0);
+    background: linear-gradient(160deg, #ffab7a, #ff7a50);
     color: white; font-weight: 700; font-size: 13px;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 2px 6px rgba(91,79,224,0.5); border: 2px solid white;
-    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(255,122,80,0.5); border: 2px solid white; cursor: pointer;
   }
 
-  .prf-popup {
-    width: 240px; background: white; border-radius: 10px; padding: 10px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25); position: relative;
-  }
+  /* ---------- 지도 팝업(인포윈도우) ---------- */
+  .prf-popup { width: 240px; background: white; border-radius: 10px; padding: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); position: relative; }
   .prf-popup .popup-close {
     position: absolute; top: 6px; right: 6px; width: 22px; height: 22px;
     border: none; border-radius: 50%; background: rgba(0,0,0,0.06); color: #555;
@@ -95,27 +138,23 @@
   }
   .prf-popup img { width: 100%; height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
   .prf-popup h3 { font-size: 15px; margin: 0 0 4px; line-height: 1.3; }
-  .prf-popup .genre {
-    display: inline-block; font-size: 11px; background: #eef2ff; color: #3b4bcc;
-    padding: 2px 8px; border-radius: 10px; margin-bottom: 6px;
-  }
-  .prf-popup .approx {
-    display: inline-block; font-size: 11px; background: #fff4e5; color: #b26a00;
-    padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; margin-left: 4px;
-  }
+  .prf-popup .genre { display: inline-block; font-size: 11px; background: #fff1ea; color: #d85c30; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }
+  .prf-popup .approx { display: inline-block; font-size: 11px; background: #fff4e5; color: #b26a00; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; margin-left: 4px; }
   .prf-popup dl { margin: 6px 0 0; font-size: 12.5px; color: #444; }
-  .prf-popup dt { font-weight: 600; float: left; width: 44px; clear: left; color: #888; }
+  .prf-popup dt { font-weight: 600; float: left; width: 44px; clear: left; color: #999; }
   .prf-popup dd { margin: 0 0 3px 48px; }
   .prf-popup .price-note { font-size: 10.5px; color: #aaa; }
   .prf-popup .btn-row { display: flex; gap: 6px; margin-top: 8px; }
-  .prf-popup .btn-row a, .prf-popup .btn-row button {
+  .prf-popup .btn-row a, .prf-popup .btn-row button,
+  .list-card .btn-row a, .list-card .btn-row button {
     flex: 1; text-align: center; padding: 6px 0; border: none; border-radius: 6px;
     text-decoration: none; font-size: 13px; cursor: pointer; font-family: inherit;
   }
-  .prf-popup .link-btn { background: #5b4fe0; color: white; }
-  .prf-popup .directions-btn { background: #eef2ff; color: #3b4bcc; }
+  .link-btn { background: #ff7a50; color: white; }
+  .directions-btn { background: #fff1ea; color: #d85c30; }
+  .list-card .btn-row { display: flex; gap: 6px; margin-top: 6px; }
+  .list-card .btn-row a, .list-card .btn-row button { font-size: 11.5px; padding: 5px 0; }
 
-  /* 폰 화면에서는 팝업을 더 작게 - 이미지가 화면 밖으로 잘리는 문제 방지 */
   @media (max-width: 480px) {
     .prf-popup { width: 168px; padding: 8px; }
     .prf-popup img { height: 84px; margin-bottom: 4px; }
@@ -130,8 +169,8 @@
 </style>
 </head>
 <body>
-<div id="map"></div>
-<div class="filter-bar">
+<div class="topbar">
+  <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
   <div class="search-row">
     <input type="text" id="searchBox" placeholder="공연명 검색 (예: 신데렐라)">
     <div class="search-results" id="searchResults"></div>
@@ -146,6 +185,13 @@
     <input type="date" id="dateFilter">
   </div>
   <div class="count-text" id="countText">불러오는 중...</div>
+</div>
+<div class="main-layout">
+  <div class="list-panel" id="listPanel">
+    <div class="sheet-handle" id="sheetHandle"><div class="bar"></div><span id="sheetLabel">목록 보기</span></div>
+    <div class="list-items" id="listItems"></div>
+  </div>
+  <div id="map"></div>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=101ar2fmcs"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
@@ -172,7 +218,6 @@
   Cluster.prototype.enableClickZoom = function () {
     if (this._relation) return;
     const clusterMap = this._markerClusterer.getMap();
-    const self = this;
     this._relation = naver.maps.Event.addListener(this._clusterMarker, 'click', function (e) {
       clusterMap.morph(e.coord, Math.min(clusterMap.getZoom() + 3, 21));
     });
@@ -196,16 +241,28 @@
     return best;
   }
 
+  const GENRE_ICONS = {
+    '뮤지컬': '🎵', '연극': '🎭', '서양음악(클래식)': '🎻', '한국음악(국악)': '🥁',
+    '대중음악': '🎤', '무용(서양/한국무용)': '💃', '대중무용': '🕺', '서커스/마술': '🎪',
+    '복합': '✨',
+  };
+
+  // 계절이 지나면 어차피 텅 빈 결과만 나오는 카테고리는 칩 자체를 숨긴다
+  // (예: 한겨울에 물놀이 칩을 보여줘봤자 0건이라 혼란만 줌)
+  const SEASONAL_CATEGORIES = {
+    '물놀이': [4, 5, 6, 7, 8, 9, 10],
+    '스키·눈썰매': [11, 12, 1, 2, 3],
+  };
+
+  function isInSeason(name) {
+    const months = SEASONAL_CATEGORIES[name];
+    if (!months) return true; // 계절 제한이 없는 카테고리는 항상 표시
+    return months.includes(new Date().getMonth() + 1);
+  }
+
   function pinIconFor(p) {
-    const isChild = p.is_child;
-    const bg = isChild ? 'linear-gradient(160deg, #ff9a7a, #ff6a5b)' : 'linear-gradient(160deg, #8b7cf6, #5b4fe0)';
-    const tailColor = isChild ? '#ff6a5b' : '#5b4fe0';
-    const icon = isChild ? '👶' : (GENRE_ICONS[p.genre] || '🎫');
-    const html =
-      `<div class="prf-pin">` +
-        `<div class="pin-badge" style="background:${bg}">${icon}</div>` +
-        `<div class="pin-tail" style="border-top:8px solid ${tailColor}"></div>` +
-      `</div>`;
+    const icon = GENRE_ICONS[p.genre] || '🎫';
+    const html = `<div class="prf-pin"><div class="pin-badge">${icon}</div><div class="pin-tail"></div></div>`;
     return {
       content: html,
       size: new naver.maps.Size(32, 40),
@@ -240,18 +297,8 @@
   naver.maps.Event.addListener(map, 'click', () => closePopup());
   naver.maps.Event.addListener(map, 'zoom_changed', function (zoom) {
     // 축소해서 마커가 클러스터로 합쳐지는 시점(클러스터 maxZoom=15 근처)에는 열려있던 팝업도 같이 닫는다
-    // (마우스 위치 기준 확대 중에 강제로 팝업 위치로 되돌리면 튕기는 느낌이 나서, 팝업이 열릴 때만 위치를 맞추고
-    // 그 이후 확대/축소는 사용자가 스크롤한 위치를 그대로 따라가게 둔다)
-    if (zoom < 14) {
-      closePopup();
-    }
+    if (zoom < 14) closePopup();
   });
-
-  const GENRE_ICONS = {
-    '뮤지컬': '🎵', '연극': '🎭', '서양음악(클래식)': '🎻', '한국음악(국악)': '🥁',
-    '대중음악': '🎤', '무용(서양/한국무용)': '💃', '대중무용': '🕺', '서커스/마술': '🎪',
-    '복합': '✨',
-  };
 
   function buildPopupHtml(p) {
     const posterHtml = p.poster ? `<img src="${p.poster}" alt="${p.title} 포스터">` : '';
@@ -278,13 +325,13 @@
     );
   }
 
-  // 팝업이 위쪽 필터바에 가리지 않도록, 필터바 실제 높이 + 팝업 예상 높이만큼
+  // 팝업이 위쪽 상단바에 가리지 않도록, 상단바 실제 높이 + 팝업 예상 높이만큼
   // 클릭한 위치를 화면 아래쪽으로 이동시킨다
   function panForPopup(position) {
-    const filterBar = document.querySelector('.filter-bar');
-    const filterBarBottom = filterBar ? filterBar.getBoundingClientRect().bottom : 0;
-    const popupH = window.innerWidth <= 480 ? 260 : 430; // 모바일은 CSS로 팝업이 작아짐
-    const minMarkerY = filterBarBottom + popupH + 20;
+    const topbar = document.querySelector('.topbar');
+    const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
+    const popupH = window.innerWidth <= 480 ? 260 : 430;
+    const minMarkerY = topbarBottom + popupH + 20;
     const centerY = window.innerHeight / 2;
     const shiftDown = Math.max(0, Math.min(minMarkerY - centerY, window.innerHeight - centerY - 60));
 
@@ -303,6 +350,45 @@
       openPopupAt(marker.getPosition(), marker, buildPopupHtml(p));
     });
     return marker;
+  }
+
+  function openFromList(p) {
+    const pos = new naver.maps.LatLng(p.lat, p.lon);
+    map.setZoom(16);
+    openPopupAt(pos, pos, buildPopupHtml(p));
+    if (window.innerWidth <= 768) collapseSheet();
+  }
+
+  function renderList(list) {
+    const container = document.getElementById('listItems');
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty-msg">조건에 맞는 공연이 없어요</div>';
+      return;
+    }
+    container.innerHTML = list.map((p, i) => {
+      const thumb = p.poster
+        ? `<img class="thumb" src="${p.poster}" alt="">`
+        : `<div class="thumb no-img">${GENRE_ICONS[p.genre] || '🎫'}</div>`;
+      return (
+        `<div class="list-card" data-idx="${i}">` +
+          thumb +
+          `<div class="info">` +
+            `<span class="genre">${p.genre}</span>` +
+            `<h4>${p.title}</h4>` +
+            `<div class="meta">${p.start_date} ~ ${p.end_date}</div>` +
+            `<div class="meta">${p.venue}</div>` +
+            (p.price ? `<div class="price">${p.price}</div>` : '') +
+            `<div class="btn-row">` +
+              `<a class="link-btn" href="${p.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">예매</a>` +
+              `<button class="directions-btn" onclick="event.stopPropagation(); openDirections(${p.lat}, ${p.lon}, '${encodeURIComponent(p.venue || p.title)}')">길찾기</button>` +
+            `</div>` +
+          `</div>` +
+        `</div>`
+      );
+    }).join('');
+    container.querySelectorAll('.list-card').forEach(el => {
+      el.addEventListener('click', () => openFromList(list[Number(el.dataset.idx)]));
+    });
   }
 
   function toDateObj(s) {
@@ -358,8 +444,7 @@
 
     let filtered = allPlaces;
     if (region) filtered = filtered.filter(p => p.region_group === region);
-    if (cat === '__child__') filtered = filtered.filter(p => p.is_child);
-    else if (cat) filtered = filtered.filter(p => p.genre === cat);
+    if (cat) filtered = filtered.filter(p => p.genre === cat);
     if (dateVal) {
       const [y, m, d] = dateVal.split('-').map(Number);
       const sel = new Date(y, m - 1, d);
@@ -371,6 +456,9 @@
     }
 
     renderMarkers(filtered);
+    renderList(filtered);
+    const label = document.getElementById('sheetLabel');
+    if (label) label.textContent = `목록 보기 (${filtered.length}건)`;
     document.getElementById('countText').textContent = `공연 ${filtered.length}/${allPlaces.length}건`;
   }
 
@@ -403,6 +491,13 @@
     }
   }
 
+  // ---------- 모바일 바텀시트 ----------
+  function collapseSheet() { document.getElementById('listPanel').classList.remove('expanded'); }
+  function expandSheet() { document.getElementById('listPanel').classList.add('expanded'); }
+  document.getElementById('sheetHandle').addEventListener('click', () => {
+    document.getElementById('listPanel').classList.toggle('expanded');
+  });
+
   function initFilters(places) {
     // 최대 3개월(수집 창)까지만 선택 가능하게 막는다 (일부 공연은 종료일이 훨씬 먼 오픈런이라
     // 실제 데이터의 최대 종료일 기준으로 하면 3개월을 훌쩍 넘겨버린다)
@@ -427,10 +522,11 @@
       { value: '제주권', label: '제주권' },
     ], panToRegion);
 
-    const genres = Array.from(new Set(places.map(p => p.genre).filter(Boolean))).sort();
+    const genres = Array.from(new Set(places.map(p => p.genre).filter(Boolean)))
+      .filter(isInSeason)
+      .sort();
     const catItems = [
       { value: '', label: '전체' },
-      { value: '__child__', label: '👶 아동' },
       ...genres.map(g => ({ value: g, label: (GENRE_ICONS[g] || '🎫') + ' ' + g })),
     ];
     initChipRow(document.getElementById('catChipRow'), catItems);
@@ -478,12 +574,9 @@
         ).join('');
         searchResults.querySelectorAll('div[data-idx]').forEach(el => {
           el.addEventListener('click', () => {
-            const p = matches[Number(el.dataset.idx)];
-            const pos = new naver.maps.LatLng(p.lat, p.lon);
-            map.setZoom(16);
-            openPopupAt(pos, pos, buildPopupHtml(p));
+            openFromList(matches[Number(el.dataset.idx)]);
             searchResults.classList.remove('show');
-            searchBox.value = p.title;
+            searchBox.value = matches[Number(el.dataset.idx)].title;
           });
         });
       }

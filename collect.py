@@ -1,8 +1,8 @@
-"""KOPIS(공연예술통합전산망) API로 전국 공연 목록을 모으고 data/places.json 으로 저장한다.
-매일 배치 실행을 염두에 둔 스크립트.
+"""KOPIS(공연예술통합전산망) API로 전국 아동 공연 목록을 모으고 data/places.json 으로 저장한다.
+매일 배치 실행을 염두에 둔 스크립트. (아동 서비스로 좁혀서 child=Y 인 것만 남긴다)
 
 흐름: 지역(16개 권역코드)별로 전체 장르를 페이지네이션으로 훑어 후보를 모으고 ->
-     공연 상세(가격/연령/포스터/시설ID/아동여부) 조회 ->
+     공연 상세(가격/연령/포스터/시설ID/아동여부) 조회 -> child=Y 인 것만 통과 ->
      시설 상세(정확한 주소/좌표) 조회, 실패 시 NAVER 지역검색으로 대략 위치 보정
 """
 import json
@@ -153,6 +153,7 @@ def build_place(detail: dict, facility: dict) -> dict:
     address = facility.get("adres", "")
     return {
         "id": mt20id,
+        "type": "performance",
         "title": detail.get("prfnm", ""),
         "genre": detail.get("genrenm", ""),
         "is_child": detail.get("child") == "Y",
@@ -220,6 +221,8 @@ def collect() -> list[dict]:
 
         if not detail.get("prfnm"):
             continue
+        if detail.get("child") != "Y":
+            continue  # 아동 전용 서비스로 좁힌다
 
         mt10id = detail.get("mt10id")
         facility = {}
