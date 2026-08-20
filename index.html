@@ -28,14 +28,6 @@
   .brand h1 { font-size: 15px; margin: 0; color: #333; font-weight: 800; }
   .brand .tagline { font-size: 11px; color: #aaa; margin-left: 4px; }
 
-  .location-search-row { position: relative; margin-bottom: 8px; }
-  .location-search-row input {
-    width: 100%; border: 1.5px solid #ffe1d0; border-radius: 12px;
-    padding: 9px 12px; font-size: 13px; background: #fffaf7;
-  }
-  .location-search-row input:focus { outline: none; border-color: #ff8a65; }
-  .location-search-status { font-size: 11.5px; color: #999; margin-top: 3px; padding: 0 2px; min-height: 14px; }
-
   .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
   .chip-row::-webkit-scrollbar { height: 4px; }
   .chip-row:last-child { padding-bottom: 0; }
@@ -162,10 +154,6 @@
 <body>
 <div class="topbar">
   <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
-  <div class="location-search-row">
-    <input type="text" id="locationSearchBox" placeholder="동네 검색 (예: 판교동, 김포시)">
-    <div class="location-search-status" id="locationSearchStatus"></div>
-  </div>
   <div class="chip-row region-row" id="regionChipRow"></div>
   <div class="chip-row cat-row" id="catChipRow"></div>
   <div class="date-row">
@@ -184,7 +172,7 @@
   </div>
   <div id="map"></div>
 </div>
-<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=101ar2fmcs&submodules=geocoder"></script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=101ar2fmcs"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
 <script>
   // 네이버지도 앱으로 "여기서부터(현재위치) 길찾기"를 연다. 앱이 없으면 웹 지도로 대체.
@@ -582,37 +570,6 @@
     // 기본값: 오늘
     dateInput.value = fmtDate(today);
     document.querySelector('.date-row .chip[data-quick="today"]').classList.add('active');
-
-    // 동네 검색: 공연명 검색(필터 무시하고 엉뚱한 데로 튀는 문제로 없앴던 것)과 달리
-    // 이건 주소/동네 이름을 좌표로 바꿔서 그 위치가 속한 지역 필터로 바꿔주고 지도만
-    // 옮겨주는 거라 필터와 항상 일치한다.
-    const locationSearchBox = document.getElementById('locationSearchBox');
-    const locationSearchStatus = document.getElementById('locationSearchStatus');
-    locationSearchBox.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      const q = locationSearchBox.value.trim();
-      if (!q) return;
-      if (!window.naver || !naver.maps.Service) {
-        locationSearchStatus.textContent = '위치 검색을 쓸 수 없어요';
-        return;
-      }
-      locationSearchStatus.textContent = '검색 중...';
-      naver.maps.Service.geocode({ query: q }, function (status, response) {
-        if (status !== naver.maps.Service.Status.OK || !response.v2.addresses.length) {
-          locationSearchStatus.textContent = '위치를 찾지 못했어요';
-          return;
-        }
-        const item = response.v2.addresses[0];
-        const lat = parseFloat(item.y), lon = parseFloat(item.x);
-        const group = pickRegionGroup(lat, lon);
-        setActiveChip(document.getElementById('regionChipRow'), group);
-        applyFilters();
-        map.setCenter(new naver.maps.LatLng(lat, lon));
-        map.setZoom(14);
-        locationSearchStatus.textContent = `${item.roadAddress || item.jibunAddress || q} 근처로 이동했어요`;
-      });
-    });
-    locationSearchBox.addEventListener('input', () => { locationSearchStatus.textContent = ''; });
   }
 
   fetch('data/places.json')
