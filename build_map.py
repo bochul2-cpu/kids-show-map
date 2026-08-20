@@ -38,23 +38,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .brand h1 {{ font-size: 15px; margin: 0; color: #333; font-weight: 800; }}
   .brand .tagline {{ font-size: 11px; color: #aaa; margin-left: 4px; }}
 
-  .search-row {{ position: relative; margin-bottom: 8px; }}
-  .search-row input {{
-    width: 100%; border: 1.5px solid #ffe1d0; border-radius: 12px;
-    padding: 9px 12px; font-size: 13px; background: #fffaf7;
-  }}
-  .search-row input:focus {{ outline: none; border-color: #ff8a65; }}
-  .search-results {{
-    position: absolute; top: 100%; left: 0; right: 0; background: white;
-    border: 1px solid #eee; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-    margin-top: 4px; max-height: 240px; overflow-y: auto; z-index: 1001; display: none;
-  }}
-  .search-results.show {{ display: block; }}
-  .search-results div {{ padding: 8px 10px; font-size: 12.5px; cursor: pointer; border-bottom: 1px solid #f2f2f2; }}
-  .search-results div:last-child {{ border-bottom: none; }}
-  .search-results div:hover {{ background: #fff1ea; }}
-  .search-results .sr-genre {{ color: #999; font-size: 11px; margin-left: 4px; }}
-
   .chip-row {{ display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }}
   .chip-row::-webkit-scrollbar {{ height: 4px; }}
   .chip-row:last-child {{ padding-bottom: 0; }}
@@ -181,10 +164,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar">
   <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
-  <div class="search-row">
-    <input type="text" id="searchBox" placeholder="공연명 검색 (예: 신데렐라)">
-    <div class="search-results" id="searchResults"></div>
-  </div>
   <div class="chip-row region-row" id="regionChipRow"></div>
   <div class="chip-row cat-row" id="catChipRow"></div>
   <div class="date-row">
@@ -354,18 +333,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     );
   }}
 
-  // 팝업이 위쪽 상단바에 가리지 않도록, 상단바 실제 높이 + 팝업 예상 높이만큼
-  // 클릭한 위치를 화면 아래쪽으로 이동시킨다
+  // 팝업이 위쪽 상단바에 가릴 때만, 가려지는 만큼만 살짝 내려서 보이게 한다.
+  // (매번 화면 중앙으로 옮기면 누른 위치가 계속 확 바뀌어 불편하다는 피드백으로 최소 이동으로 변경)
   function panForPopup(position) {{
     const topbar = document.querySelector('.topbar');
     const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
     const popupH = window.innerWidth <= 480 ? 260 : 430;
-    const minMarkerY = topbarBottom + popupH + 20;
-    const centerY = window.innerHeight / 2;
-    const shiftDown = Math.max(0, Math.min(minMarkerY - centerY, window.innerHeight - centerY - 60));
 
     const proj = map.getProjection();
     const pt = proj.fromCoordToOffset(position);
+
+    const popupTopY = pt.y - popupH; // 팝업은 마커 위쪽에 뜬다
+    const neededTop = topbarBottom + 12;
+    let shiftDown = Math.max(0, neededTop - popupTopY);
+    if (shiftDown === 0) return; // 이미 안 가리면 지도를 움직이지 않는다
+
+    const maxShift = Math.max(0, window.innerHeight - pt.y - 40); // 마커가 화면 밖 아래로 밀리지 않게 제한
+    shiftDown = Math.min(shiftDown, maxShift);
+    if (shiftDown === 0) return;
+
     const shifted = new naver.maps.Point(pt.x, pt.y - shiftDown);
     map.panTo(proj.fromOffsetToCoord(shifted));
   }}
@@ -595,33 +581,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     // 기본값: 오늘
     dateInput.value = fmtDate(today);
     document.querySelector('.date-row .chip[data-quick="today"]').classList.add('active');
-
-    // 검색
-    const searchBox = document.getElementById('searchBox');
-    const searchResults = document.getElementById('searchResults');
-    searchBox.addEventListener('input', () => {{
-      const q = searchBox.value.trim();
-      if (!q) {{ searchResults.classList.remove('show'); searchResults.innerHTML = ''; return; }}
-      const matches = allPlaces.filter(p => p.title.includes(q)).slice(0, 8);
-      if (matches.length === 0) {{
-        searchResults.innerHTML = '<div>검색 결과 없음</div>';
-      }} else {{
-        searchResults.innerHTML = matches.map((p, i) =>
-          `<div data-idx="${{i}}">${{p.title}}<span class="sr-genre">${{p.venue}}</span></div>`
-        ).join('');
-        searchResults.querySelectorAll('div[data-idx]').forEach(el => {{
-          el.addEventListener('click', () => {{
-            openFromList(matches[Number(el.dataset.idx)]);
-            searchResults.classList.remove('show');
-            searchBox.value = matches[Number(el.dataset.idx)].title;
-          }});
-        }});
-      }}
-      searchResults.classList.add('show');
-    }});
-    document.addEventListener('click', (e) => {{
-      if (!e.target.closest('.search-row')) searchResults.classList.remove('show');
-    }});
   }}
 
   fetch('data/places.json')
