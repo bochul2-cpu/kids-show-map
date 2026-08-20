@@ -609,19 +609,34 @@
     return list.filter(p => bounds.hasLatLng(new naver.maps.LatLng(p.lat, p.lon)));
   }
 
-  // 이번 주말(다가오는 토~일) 범위와 겹치는 시간제한 장소(공연/축제) + 지금 계절에
-  // 맞는 상시 카테고리(여름 물놀이/겨울 스키/그 외 나들이) 를 섞어서 추천 카드로 보여준다.
+  // 이번 주말(토~일, 오늘이 이미 주말이면 오늘 포함) 범위와 겹치는 시간제한 장소
+  // (공연/축제) + 지금 계절에 맞는 상시 카테고리(여름 물놀이/겨울 스키/그 외 나들이)를
+  // 섞어서 추천 카드로 보여준다. 지도를 어디로 옮기든 안 바뀌게, 현재 위치(GPS) 기준
+  // 반경 10km 안으로만 좁힌다 - 뷰포트 기준이면 지도 패닝할 때마다 추천이 계속 바뀌어서
+  // "그냥 가까운 데 뜨는 목록"처럼 느껴진다는 피드백으로 GPS 기준으로 고정.
+  // 날씨 기반 추천은 아직 날씨 API 키가 없어서 못 넣었다 - 요일(주말 여부)만 반영.
   // 연령대별 추천은 age 필드가 "전체 관람가"/"8세 이상" 같은 자유 텍스트라 구조화가 안 돼
-  // 있어 이번엔 계절+주말 기준으로만 구성했다.
+  // 있어 이번에도 계절+주말 기준으로만 구성했다.
+  const RECO_RADIUS_KM = 10;
+
   function computeRecommendations() {
-    const inView = placesInViewport(allPlaces);
+    if (!userPosition) return { combined: [], seasonalCategory: null };
+    const nearby = allPlaces.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= RECO_RADIUS_KM);
 
     const today = new Date();
-    const addDays = (6 - today.getDay() + 7) % 7;
-    const sat = new Date(today); sat.setDate(sat.getDate() + addDays); sat.setHours(0, 0, 0, 0);
+    const day = today.getDay(); // 0=일, 6=토
+    let sat;
+    if (day === 6) {
+      sat = new Date(today); // 오늘이 토요일
+    } else if (day === 0) {
+      sat = new Date(today); sat.setDate(sat.getDate() - 1); // 오늘이 일요일 - 어제(토)부터
+    } else {
+      sat = new Date(today); sat.setDate(sat.getDate() + (6 - day)); // 평일 - 다가오는 토요일
+    }
+    sat.setHours(0, 0, 0, 0);
     const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
 
-    const weekendPicks = inView.filter(p => {
+    const weekendPicks = nearby.filter(p => {
       if (!isTimeBound(p)) return false;
       const start = toDateObj(p.start_date), end = toDateObj(p.end_date);
       return start && end && sat <= end && sun >= start;
@@ -631,7 +646,7 @@
     let seasonalCategory = '나들이·산책';
     if (SEASONAL_CATEGORIES['물놀이'].includes(month)) seasonalCategory = '물놀이';
     else if (SEASONAL_CATEGORIES['스키·눈썰매'].includes(month)) seasonalCategory = '스키·눈썰매';
-    const seasonalPicks = inView.filter(p => p.category === seasonalCategory);
+    const seasonalPicks = nearby.filter(p => p.category === seasonalCategory);
 
     const seen = new Set();
     const combined = [];
@@ -646,7 +661,7 @@
     const section = document.getElementById('recoSection');
     if (combined.length === 0) { section.style.display = 'none'; return; }
     section.style.display = 'block';
-    document.getElementById('recoTitle').textContent = `🌟 이번 주말 + ${seasonalCategory} 추천`;
+    document.getElementById('recoTitle').textContent = `🌟 내 주변(${RECO_RADIUS_KM}km) · ${seasonalCategory} 추천`;
     document.getElementById('recoScroll').innerHTML = combined.map((p, i) => {
       const thumb = p.poster
         ? `<img class="thumb" src="${p.poster}" alt="">`
