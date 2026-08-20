@@ -1,19 +1,11 @@
-# config.py 파일을 이 이름으로 복사한 뒤, 본인의 NAVER API HUB 인증정보로 채워주세요.
-NAVER_API_URL = "https://naverapihub.apigw.ntruss.com/search/v1/local"
-NAVER_HEADERS = {
-    "X-NCP-APIGW-API-KEY-ID": "여기에_Client_ID",
-    "X-NCP-APIGW-API-KEY": "여기에_Client_Secret",
-}
+# config.py 파일을 이 이름으로 복사한 뒤, 본인의 KOPIS 인증키로 채워주세요.
+# 발급: https://kopis.or.kr/por/cs/openapi/openApiUseSend.do?menuId=MNU_00074
+KOPIS_SERVICE_KEY = "여기에_발급받은_인증키"
+KOPIS_BASE_URL = "http://www.kopis.or.kr/openApi/restful"
 
-SHOW_KEYWORDS = ["어린이공연", "어린이뮤지컬", "인형극", "가족공연"]
+SHOW_KEYWORDS = ["어린이", "아동", "키즈", "인형극"]
 
-REGIONS = [
-    "서울", "수원", "성남", "고양", "용인", "부천", "안산", "안양",
-    "화성", "남양주", "평택", "의정부", "파주", "김포", "광명", "시흥",
-    "군포", "하남", "오산", "이천", "구리", "안성", "의왕", "양주",
-]
-
-KEYWORDS = [f"{region} {kw}" for region in REGIONS for kw in SHOW_KEYWORDS]
+DAYS_AHEAD = 90
 
 ALLOWED_ADDRESS_PREFIXES = ("서울", "경기")
 
