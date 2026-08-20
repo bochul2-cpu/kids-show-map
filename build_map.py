@@ -1,9 +1,9 @@
-"""data/places.json 을 읽어 Leaflet 지도 기반의 반응형 index.html 을 생성한다.
-공연 상세(기간/가격/포스터/링크)를 팝업에 담고, 확대 정도에 따라 마커가
+"""data/places.json 을 읽어 NAVER 지도 기반의 반응형 index.html 을 생성한다.
+공연 상세(기간/가격/포스터/링크)를 인포윈도우에 담고, 확대 정도에 따라 마커가
 클러스터 -> 개별 핀으로 펼쳐지도록 구성한다. 첫 화면은 부천 전역이 보이도록 고정."""
 import json
 
-from config import DATA_PATH, MAP_OUTPUT_PATH
+from config import DATA_PATH, MAP_OUTPUT_PATH, NAVER_MAP_CLIENT_ID
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="ko">
@@ -11,9 +11,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>어린이 공연 지도</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <style>
   html, body {{ height: 100%; margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif; }}
   #map {{ height: 100%; width: 100%; }}
@@ -33,9 +30,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     color: white; font-weight: 700; font-size: 13px;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 2px 6px rgba(91,79,224,0.5); border: 2px solid white;
+    cursor: pointer;
   }}
 
-  .prf-popup {{ width: 240px; }}
+  .prf-popup {{
+    width: 240px; background: white; border-radius: 10px; padding: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  }}
   .prf-popup img {{ width: 100%; height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }}
   .prf-popup h3 {{ font-size: 15px; margin: 0 0 4px; line-height: 1.3; }}
   .prf-popup .genre {{
@@ -61,8 +62,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div id="map"></div>
 <div class="info-bar">공연 {count}건 · 업데이트 {updated_at}</div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
 <script>
   const places = {places_json};
 
@@ -78,17 +79,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }};
 
   // 첫 화면은 부천시 전역이 보이도록 고정 (지도 조작으로 다른 지역도 볼 수 있음)
-  const BUCHEON_BOUNDS = [[37.454, 126.712], [37.578, 126.860]];
-
-  const map = L.map('map');
+  const map = new naver.maps.Map('map', {{ zoom: 12 }});
+  const BUCHEON_BOUNDS = new naver.maps.LatLngBounds(
+    new naver.maps.LatLng(37.454, 126.712),
+    new naver.maps.LatLng(37.578, 126.860)
+  );
   map.fitBounds(BUCHEON_BOUNDS);
 
-  L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }}).addTo(map);
-
-  const pinSvg = `<svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
+  const pinSvg = `<div class="prf-pin"><svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#8b7cf6"/>
@@ -97,33 +95,32 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </defs>
     <path d="M15 0C6.716 0 0 6.716 0 15c0 11.25 15 23 15 23s15-11.75 15-23C30 6.716 23.284 0 15 0z" fill="url(#pinGrad)"/>
     <circle cx="15" cy="14" r="6" fill="white"/>
-  </svg>`;
+  </svg></div>`;
 
-  const pinIcon = L.divIcon({{
-    html: pinSvg,
-    className: 'prf-pin',
-    iconSize: [30, 38],
-    iconAnchor: [15, 38],
-    popupAnchor: [0, -34],
+  const pinIcon = {{
+    content: pinSvg,
+    size: new naver.maps.Size(30, 38),
+    anchor: new naver.maps.Point(15, 38),
+  }};
+
+  const infowindow = new naver.maps.InfoWindow({{
+    content: '<div></div>',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    disableAnchor: true,
+    pixelOffset: new naver.maps.Point(0, -10),
   }});
 
-  const clusters = L.markerClusterGroup({{
-    maxClusterRadius: 50,
-    iconCreateFunction: function (cluster) {{
-      return L.divIcon({{
-        html: `<div class="cluster-badge">${{cluster.getChildCount()}}</div>`,
-        className: '',
-        iconSize: [36, 36],
-      }});
-    }},
-  }});
+  const markers = places.map(p => {{
+    const marker = new naver.maps.Marker({{
+      position: new naver.maps.LatLng(p.lat, p.lon),
+      icon: pinIcon,
+    }});
 
-  places.forEach(p => {{
-    const marker = L.marker([p.lat, p.lon], {{ icon: pinIcon }});
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
     const approxHtml = p.approx_location ? `<span class="approx">위치 대략</span>` : '';
 
-    marker.bindPopup(
+    const popupHtml =
       `<div class="prf-popup">` +
         posterHtml +
         `<span class="genre">${{p.genre}}</span>` + approxHtml +
@@ -140,13 +137,35 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">예매/상세보기</a>` +
           `<button class="directions-btn" onclick="openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
         `</div>` +
-      `</div>`,
-      {{ maxWidth: 260 }}
-    );
-    clusters.addLayer(marker);
+      `</div>`;
+
+    naver.maps.Event.addListener(marker, 'click', function () {{
+      infowindow.setContent(popupHtml);
+      infowindow.open(map, marker);
+    }});
+
+    return marker;
   }});
 
-  map.addLayer(clusters);
+  new MarkerClustering({{
+    minClusterSize: 2,
+    maxZoom: 15,
+    map: map,
+    markers: markers,
+    disableClickZoom: false,
+    gridSize: 100,
+    icons: [{{
+      content: `<div class="cluster-badge"><span></span></div>`,
+      size: new naver.maps.Size(36, 36),
+      anchor: new naver.maps.Point(18, 18),
+    }}],
+    indexGenerator: [10],
+    stylingFunction: function (clusterMarker, count) {{
+      const el = clusterMarker.getElement();
+      const span = el.querySelector('span');
+      if (span) span.textContent = count;
+    }},
+  }});
 </script>
 </body>
 </html>
@@ -161,6 +180,7 @@ def main():
         count=data["count"],
         updated_at=data["updated_at"][:16].replace("T", " "),
         places_json=json.dumps(data["places"], ensure_ascii=False),
+        naver_map_client_id=NAVER_MAP_CLIENT_ID,
     )
 
     with open(MAP_OUTPUT_PATH, "w", encoding="utf-8") as f:

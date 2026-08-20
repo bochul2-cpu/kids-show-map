@@ -11,6 +11,9 @@ NAVER_HEADERS = {
     "X-NCP-APIGW-API-KEY": "여기에_Client_Secret",
 }
 
+# NCP Maps(Web Dynamic Map) 발급: console.ncloud.com > Application Services > Maps
+NAVER_MAP_CLIENT_ID = "여기에_Maps_Client_ID"
+
 SHOW_KEYWORDS = ["어린이", "아동", "키즈", "인형극"]
 
 KOPIS_GENRES = ["AAAA", "GGGA", "EEEB"]  # 연극, 뮤지컬, 서커스/마술
