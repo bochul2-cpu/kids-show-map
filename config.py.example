@@ -12,3 +12,6 @@ NAVER_HEADERS = {
 
 # NCP Maps(Web Dynamic Map) 발급: console.ncloud.com > Application Services > Maps
 NAVER_MAP_CLIENT_ID = "여기에_Maps_Client_ID"
+
+# TourAPI 인증키 발급: data.go.kr > "한국관광공사_국문 관광정보 서비스" 검색 > 활용신청
+TOUR_API_KEY = "여기에_발급받은_TourAPI_인증키"

@@ -257,6 +257,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     '복합': '✨',
   }};
 
+  // 대분류(9개) 아이콘 - 마커/칩에서 우선적으로 쓴다
+  const CATEGORY_ICONS = {{
+    '공연·전시': '🎭', '축제': '🎪', '나들이·산책': '🌳', '동물원·수족관': '🐾',
+    '체험·놀이': '🙌', '물놀이': '💦', '캠핑·글램핑': '⛺', '놀이공원': '🎢',
+    '스키·눈썰매': '⛷️',
+  }};
+
+  function iconFor(p) {{
+    return CATEGORY_ICONS[p.category] || GENRE_ICONS[p.genre] || '🎫';
+  }}
+
   // 계절이 지나면 어차피 텅 빈 결과만 나오는 카테고리는 칩 자체를 숨긴다
   // (예: 한겨울에 물놀이 칩을 보여줘봤자 0건이라 혼란만 줌)
   const SEASONAL_CATEGORIES = {{
@@ -271,7 +282,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
 
   function pinIconFor(p) {{
-    const icon = GENRE_ICONS[p.genre] || '🎫';
+    const icon = iconFor(p);
     const html = `<div class="prf-pin"><div class="pin-badge">${{icon}}</div><div class="pin-tail"></div></div>`;
     return {{
       content: html,
@@ -310,9 +321,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (zoom < 14) closePopup();
   }});
 
+  // 공연/축제는 "정해진 기간에 하는 것"이라 기간·정가(예매가와 다를 수 있음)·예매 라벨이 맞고,
+  // 상설 장소(공원/캠핑장/동물원 등)는 항상 열려있어서 기간 대신 운영시간/입장료/상세보기가 맞는다
+  function isTimeBound(p) {{ return p.type === 'performance' || p.category === '축제'; }}
+
   function buildPopupHtml(p) {{
+    const timeBound = isTimeBound(p);
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
     const approxHtml = p.approx_location ? `<span class="approx">위치 대략</span>` : '';
+    const priceLabel = p.type === 'performance' ? '정가' : '입장료';
+    const priceNote = p.type === 'performance' ? `<br><span class="price-note">실제 예매가는 다를 수 있어요</span>` : '';
+    const linkLabel = timeBound ? '예매/상세보기' : '상세보기';
     return (
       `<div class="prf-popup">` +
         `<button type="button" class="popup-close" onclick="window.__closeInfoWindow()">×</button>` +
@@ -320,15 +339,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         `<span class="genre">${{p.genre}}</span>` + approxHtml +
         `<h3>${{p.title}}</h3>` +
         `<dl>` +
-          `<dt>기간</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` +
+          (timeBound ? `<dt>기간</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` : '') +
           `<dt>장소</dt><dd>${{p.venue}}<br>${{p.address}}</dd>` +
           (p.age ? `<dt>연령</dt><dd>${{p.age}}</dd>` : '') +
-          (p.price ? `<dt>정가</dt><dd>${{p.price}}<br><span class="price-note">실제 예매가는 다를 수 있어요</span></dd>` : '') +
-          (p.schedule ? `<dt>시간</dt><dd>${{p.schedule}}</dd>` : '') +
+          (p.price ? `<dt>${{priceLabel}}</dt><dd>${{p.price}}${{priceNote}}</dd>` : '') +
+          (p.schedule ? `<dt>${{timeBound ? '시간' : '운영시간'}}</dt><dd>${{p.schedule}}</dd>` : '') +
           (p.telephone ? `<dt>전화</dt><dd>${{p.telephone}}</dd>` : '') +
         `</dl>` +
         `<div class="btn-row">` +
-          `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">예매/상세보기</a>` +
+          `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">${{linkLabel}}</a>` +
           `<button class="directions-btn" onclick="openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
         `</div>` +
       `</div>`
@@ -376,20 +395,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       return;
     }}
     container.innerHTML = list.map((p, i) => {{
+      const timeBound = isTimeBound(p);
       const thumb = p.poster
         ? `<img class="thumb" src="${{p.poster}}" alt="">`
-        : `<div class="thumb no-img">${{GENRE_ICONS[p.genre] || '🎫'}}</div>`;
+        : `<div class="thumb no-img">${{iconFor(p)}}</div>`;
       return (
         `<div class="list-card" data-idx="${{i}}">` +
           thumb +
           `<div class="info">` +
             `<span class="genre">${{p.genre}}</span>` +
             `<h4>${{p.title}}</h4>` +
-            `<div class="meta">${{p.start_date}} ~ ${{p.end_date}}</div>` +
+            (timeBound ? `<div class="meta">${{p.start_date}} ~ ${{p.end_date}}</div>` : '') +
             `<div class="meta">${{p.venue}}</div>` +
             (p.price ? `<div class="price">${{p.price}}</div>` : '') +
             `<div class="btn-row">` +
-              `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">예매</a>` +
+              `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${{timeBound ? '예매' : '상세'}}</a>` +
               `<button class="directions-btn" onclick="event.stopPropagation(); openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
             `</div>` +
           `</div>` +
@@ -454,7 +474,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     let filtered = allPlaces;
     if (region) filtered = filtered.filter(p => p.region_group === region);
-    if (cat) filtered = filtered.filter(p => p.genre === cat);
+    if (cat) filtered = filtered.filter(p => p.category === cat);
     if (dateVal) {{
       const [y, m, d] = dateVal.split('-').map(Number);
       const sel = new Date(y, m - 1, d);
@@ -532,12 +552,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       {{ value: '제주권', label: '제주권' }},
     ], panToRegion);
 
-    const genres = Array.from(new Set(places.map(p => p.genre).filter(Boolean)))
-      .filter(isInSeason)
-      .sort();
+    const CATEGORY_ORDER = [
+      '공연·전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이',
+      '물놀이', '캠핑·글램핑', '놀이공원', '스키·눈썰매',
+    ];
+    const presentCategories = new Set(places.map(p => p.category).filter(Boolean));
+    const categories = CATEGORY_ORDER.filter(c => presentCategories.has(c)).filter(isInSeason);
     const catItems = [
       {{ value: '', label: '전체' }},
-      ...genres.map(g => ({{ value: g, label: (GENRE_ICONS[g] || '🎫') + ' ' + g }})),
+      ...categories.map(c => ({{ value: c, label: (CATEGORY_ICONS[c] || '🎫') + ' ' + c }})),
     ];
     initChipRow(document.getElementById('catChipRow'), catItems);
 

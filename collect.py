@@ -154,6 +154,7 @@ def build_place(detail: dict, facility: dict) -> dict:
     return {
         "id": mt20id,
         "type": "performance",
+        "category": "공연·전시",
         "title": detail.get("prfnm", ""),
         "genre": detail.get("genrenm", ""),
         "is_child": detail.get("child") == "Y",

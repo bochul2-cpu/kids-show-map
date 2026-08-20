@@ -29,9 +29,11 @@ jobs:
               "X-NCP-APIGW-API-KEY": "${{ secrets.NAVER_API_KEY }}",
           }
           NAVER_MAP_CLIENT_ID = "${{ secrets.NAVER_MAP_CLIENT_ID }}"
+          TOUR_API_KEY = "${{ secrets.TOUR_API_KEY }}"
           PYEOF
 
       - run: python collect.py
+      - run: python collect_tour.py
       - run: python build_map.py
 
       - name: Commit and push if data changed
