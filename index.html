@@ -70,6 +70,14 @@
     border-right: 1px solid #ffe1d0;
   }
   .list-items { padding: 8px; }
+
+  .reco-section { padding: 10px 8px 4px; border-bottom: 1px solid #ffe9dd; }
+  .reco-title { font-size: 12.5px; font-weight: 700; color: #d85c30; margin-bottom: 6px; }
+  .reco-scroll { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .reco-card { flex: 0 0 auto; width: 110px; cursor: pointer; }
+  .reco-card .thumb { width: 110px; height: 74px; border-radius: 8px; object-fit: cover; background: #ffe9dd; display: block; }
+  .reco-card .thumb.no-img { display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .reco-card h5 { font-size: 11.5px; margin: 4px 0 0; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: #333; }
   .empty-msg { text-align: center; color: #bbb; font-size: 13px; padding: 40px 20px; }
 
   .list-card {
@@ -208,6 +216,10 @@
 <div class="main-layout">
   <div class="list-panel" id="listPanel">
     <div class="sheet-handle" id="sheetHandle"><div class="bar"></div><span id="sheetLabel">목록 보기</span></div>
+    <div class="reco-section" id="recoSection" style="display:none;">
+      <div class="reco-title" id="recoTitle"></div>
+      <div class="reco-scroll" id="recoScroll"></div>
+    </div>
     <div class="list-items" id="listItems"></div>
   </div>
   <div id="map"></div>
@@ -526,6 +538,56 @@
     });
   }
 
+  // 이번 주말(다가오는 토~일) 범위와 겹치는 시간제한 장소(공연/축제) + 지금 계절에
+  // 맞는 상시 카테고리(여름 물놀이/겨울 스키/그 외 나들이) 를 섞어서 추천 카드로 보여준다.
+  // 연령대별 추천은 age 필드가 "전체 관람가"/"8세 이상" 같은 자유 텍스트라 구조화가 안 돼
+  // 있어 이번엔 계절+주말 기준으로만 구성했다.
+  function computeRecommendations(region) {
+    const inRegion = region ? allPlaces.filter(p => p.region_group === region) : allPlaces;
+
+    const today = new Date();
+    const addDays = (6 - today.getDay() + 7) % 7;
+    const sat = new Date(today); sat.setDate(sat.getDate() + addDays); sat.setHours(0, 0, 0, 0);
+    const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
+
+    const weekendPicks = inRegion.filter(p => {
+      if (!isTimeBound(p)) return false;
+      const start = toDateObj(p.start_date), end = toDateObj(p.end_date);
+      return start && end && sat <= end && sun >= start;
+    });
+
+    const month = today.getMonth() + 1;
+    let seasonalCategory = '나들이·산책';
+    if (SEASONAL_CATEGORIES['물놀이'].includes(month)) seasonalCategory = '물놀이';
+    else if (SEASONAL_CATEGORIES['스키·눈썰매'].includes(month)) seasonalCategory = '스키·눈썰매';
+    const seasonalPicks = inRegion.filter(p => p.category === seasonalCategory);
+
+    const seen = new Set();
+    const combined = [];
+    [...weekendPicks, ...seasonalPicks].forEach(p => {
+      if (!seen.has(p.id) && combined.length < 10) { seen.add(p.id); combined.push(p); }
+    });
+    return { combined, seasonalCategory };
+  }
+
+  function renderRecommendations() {
+    const region = activeValue(document.getElementById('regionChipRow'));
+    const { combined, seasonalCategory } = computeRecommendations(region);
+    const section = document.getElementById('recoSection');
+    if (combined.length === 0) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    document.getElementById('recoTitle').textContent = `🌟 이번 주말 + ${seasonalCategory} 추천`;
+    document.getElementById('recoScroll').innerHTML = combined.map((p, i) => {
+      const thumb = p.poster
+        ? `<img class="thumb" src="${p.poster}" alt="">`
+        : `<div class="thumb no-img">${iconFor(p)}</div>`;
+      return `<div class="reco-card" data-reco-idx="${i}">${thumb}<h5>${p.title}</h5></div>`;
+    }).join('');
+    document.getElementById('recoScroll').querySelectorAll('.reco-card').forEach(el => {
+      el.addEventListener('click', () => openFromList(combined[Number(el.dataset.recoIdx)]));
+    });
+  }
+
   function activeValue(rowEl) {
     const active = rowEl.querySelector('.chip.active');
     return active ? active.dataset.value : '';
@@ -590,6 +652,7 @@
 
     renderMarkers(filtered);
     renderList(filtered);
+    renderRecommendations();
     const label = document.getElementById('sheetLabel');
     if (label) label.textContent = `목록 보기 (${filtered.length}건)`;
     document.getElementById('countText').textContent = `장소 ${filtered.length}/${allPlaces.length}건`;
