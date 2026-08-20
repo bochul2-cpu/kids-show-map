@@ -16,6 +16,7 @@ from settings import (
     TOUR_AREA_TO_REGION_GROUP,
     TOUR_CATEGORY_TARGETS,
     TOUR_FESTIVAL_CONTENT_TYPE,
+    TOUR_PRIORITY_KEYWORD_TARGETS,
     TOUR_KEYWORD_TARGETS,
     TOUR_DATA_PATH,
 )
@@ -230,6 +231,34 @@ def collect_tour_places() -> list[dict]:
     seen_ids: set = set()
     places: list[dict] = []
     add_place = _make_add_place(seen_ids, places)
+
+    # 0) 카테고리 수집보다 먼저 선점해야 하는 키워드 (예: 스타필드가 "이색체험"
+    #    카테고리로 먼저 잡혀버리는 걸 방지 - seen_ids로 중복을 거르기 때문에
+    #    먼저 추가한 쪽의 category 라벨이 그대로 유지된다)
+    #
+    # "스타필드"로 검색하면 스타필드 안에 입점한 개별 브랜드 매장까지 다 걸린다
+    # ("구찌 스타필드 하남점" 같은 게 390건 중 389건 - 실제 몰 자체는 "스타필드 하남"
+    # 하나뿐). 몰/마트 이름이 제목 맨 앞에 오는 것만 실제 그 장소이고, 브랜드명이
+    # 앞에 붙은 건 안에 입점한 매장이라 title이 검색어로 시작하는 것만 남긴다.
+    # 이마트24/홈플러스 익스프레스처럼 완전히 다른 소형 편의점 포맷도 같이 걸려서 뺀다.
+    PRIORITY_KEYWORD_EXCLUDE = ["이마트24", "홈플러스 익스프레스"]
+    for category, keyword in TOUR_PRIORITY_KEYWORD_TARGETS:
+        try:
+            items = fetch_keyword(keyword)
+        except requests.RequestException as e:
+            print(f"[경고] 우선 키워드 '{keyword}' 조회 실패: {e}")
+            continue
+        for item in items:
+            title = item.get("title", "")
+            if not title.startswith(keyword):
+                continue
+            if any(title.startswith(ex) for ex in PRIORITY_KEYWORD_EXCLUDE):
+                continue
+            area_code = item.get("areacode", "")
+            region_group = region_group_from_area(area_code) if area_code else "기타"
+            add_place(item, category, keyword, False, False, region_group)
+        time.sleep(REQUEST_DELAY)
+        print(f"[진행] 우선 키워드 '{keyword}' 완료, 누적 {len(places)}건")
 
     # 1) 카테고리 코드 기반 수집 (지역 x 카테고리)
     for category, content_type_id, cat1, cat2, cat3, genre_label, needs_detail in TOUR_CATEGORY_TARGETS:
