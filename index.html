@@ -47,8 +47,9 @@
   .date-row .chip.active { background: #e08a00; border-color: #e08a00; color: white; }
   .date-row input[type=date] {
     border: 1px solid #ddd; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
-    accent-color: #5b4fe0; color: #555;
+    accent-color: #5b4fe0; color: #555; cursor: pointer; background: #fafafa;
   }
+  .date-row input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
   .count-text { margin-top: 6px; font-size: 11.5px; color: #888; }
 
   /* 커스텀 핀 마커 */
@@ -157,6 +158,16 @@
     minZoom: 6,
     center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
   });
+
+  // 클러스터 클릭 시 기본은 줌을 1단계만 올려서 여러 번 눌러야 흩어짐 - 한 번에 크게 확대되도록 오버라이드
+  Cluster.prototype.enableClickZoom = function () {
+    if (this._relation) return;
+    const clusterMap = this._markerClusterer.getMap();
+    const self = this;
+    this._relation = naver.maps.Event.addListener(this._clusterMarker, 'click', function (e) {
+      clusterMap.morph(e.coord, Math.min(clusterMap.getZoom() + 3, 21));
+    });
+  };
 
   const REGION_CENTERS = {
     '수도권': [37.5665, 126.9780],
@@ -333,15 +344,18 @@
   }
 
   function initFilters(places) {
-    // 수집 기간을 벗어난 날짜를 고르면 무조건 0건이 되므로, 실제 데이터의 최대 종료일까지만 선택 가능하게 막는다
+    // 최대 3개월(수집 창)까지만 선택 가능하게 막는다 (일부 공연은 종료일이 훨씬 먼 오픈런이라
+    // 실제 데이터의 최대 종료일 기준으로 하면 3개월을 훌쩍 넘겨버린다)
     const dateInput = document.getElementById('dateFilter');
     const today = new Date();
-    let maxEnd = today;
-    places.forEach(p => {
-      const end = toDateObj(p.end_date);
-      if (end && end > maxEnd) maxEnd = end;
-    });
+    const maxEnd = new Date(today);
+    maxEnd.setMonth(maxEnd.getMonth() + 3);
     dateInput.min = fmtDate(today);
+    // 숫자를 직접 입력하지 못하고 달력으로만 고르게 한다
+    dateInput.readOnly = true;
+    dateInput.addEventListener('click', () => {
+      if (dateInput.showPicker) dateInput.showPicker();
+    });
     dateInput.max = fmtDate(maxEnd);
 
     initChipRow(document.getElementById('regionChipRow'), [
