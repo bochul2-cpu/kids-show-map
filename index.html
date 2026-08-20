@@ -865,14 +865,19 @@
 
     let tooMany = false;
     if (searchQuery) {
-      // 검색 중일 땐 지금 지도 화면 밖에 있는 것도 찾아야 의미가 있어서 뷰포트 제한을
-      // 건너뛴다 - 대신 결과가 있으면 다 보이도록 지도를 맞춰준다.
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(p =>
         (p.title || '').toLowerCase().includes(q) ||
         (p.venue || '').toLowerCase().includes(q) ||
         (p.address || '').toLowerCase().includes(q)
       );
+    }
+    // 검색 중이거나 "찜한 곳만"/"최근 본 곳"을 보는 중일 땐 지금 지도 화면 밖에 있는
+    // 것도 나와야 의미가 있어서 뷰포트 제한을 건너뛴다 - 지역 칩이 있던 시절엔 없던
+    // 문제였는데, 뷰포트가 유일한 지리적 필터가 되면서 "찜한 곳만 눌렀는데 0건"처럼
+    // 결과가 안 보이는 게 검색에서 이미 한 번 겪은 것과 똑같은 원인이었다.
+    const bypassViewport = searchQuery || showFavoritesOnly || showRecentOnly;
+    if (bypassViewport) {
       if (filtered.length > 0 && filtered.length <= 200) {
         const bounds = new naver.maps.LatLngBounds();
         filtered.forEach(p => bounds.extend(new naver.maps.LatLng(p.lat, p.lon)));
