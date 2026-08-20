@@ -51,7 +51,13 @@
     accent-color: #ff7a50; color: #555; cursor: pointer; background: #fafafa;
   }
   .date-row input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; }
-  .count-text { margin-top: 6px; font-size: 11.5px; color: #999; }
+  .count-row { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; gap: 8px; }
+  .count-text { font-size: 11.5px; color: #999; }
+  .fav-filter-btn {
+    flex-shrink: 0; border: 1.5px solid #ffcbd8; background: white; color: #e0507a;
+    border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
+  }
+  .fav-filter-btn.active { background: #ff5c8a; border-color: #ff5c8a; color: white; }
 
   /* ---------- 본문: 목록 + 지도 ---------- */
   .main-layout { flex: 1; display: flex; position: relative; overflow: hidden; }
@@ -65,9 +71,15 @@
   .empty-msg { text-align: center; color: #bbb; font-size: 13px; padding: 40px 20px; }
 
   .list-card {
-    display: flex; gap: 10px; background: white; border-radius: 12px; padding: 10px;
+    position: relative; display: flex; gap: 10px; background: white; border-radius: 12px; padding: 10px;
     margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     border: 1px solid transparent; transition: border-color .15s;
+  }
+  .fav-btn {
+    position: absolute; top: 8px; right: 8px; width: 26px; height: 26px;
+    border: none; border-radius: 50%; background: rgba(255,255,255,0.9);
+    font-size: 14px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center; z-index: 1; padding: 0;
   }
   .list-card:hover { border-color: #ffcbb0; }
   .list-card .thumb {
@@ -126,6 +138,12 @@
     border: none; border-radius: 50%; background: rgba(0,0,0,0.06); color: #555;
     font-size: 14px; line-height: 1; cursor: pointer; z-index: 1;
   }
+  .prf-popup .popup-fav {
+    position: absolute; top: 6px; right: 34px; width: 22px; height: 22px;
+    border: none; border-radius: 50%; background: rgba(0,0,0,0.06);
+    font-size: 12px; line-height: 1; cursor: pointer; z-index: 1;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
   .prf-popup img { width: 100%; height: 140px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; }
   .prf-popup h3 { font-size: 15px; margin: 0 0 4px; line-height: 1.3; }
   .prf-popup .genre { display: inline-block; font-size: 11px; background: #fff1ea; color: #d85c30; padding: 2px 8px; border-radius: 10px; margin-bottom: 6px; }
@@ -173,7 +191,10 @@
     <button type="button" class="chip" data-quick="all">전체보기</button>
     <input type="date" id="dateFilter">
   </div>
-  <div class="count-text" id="countText">불러오는 중...</div>
+  <div class="count-row">
+    <span class="count-text" id="countText">불러오는 중...</span>
+    <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
+  </div>
 </div>
 <div class="main-layout">
   <div class="list-panel" id="listPanel">
@@ -194,6 +215,49 @@
     setTimeout(() => {
       if (Date.now() - start < 2000) window.location.href = webUrl;
     }, 1200);
+  };
+
+  // ---------- 익명 device id 기반 찜(즐겨찾기) ----------
+  // 지금은 로그인이 없어서 device 단위로 저장한다. 나중에 로그인 붙으면 이 getDeviceId()
+  // 자리만 실제 userId로 바꿔치기하면 되도록, deviceId 발급/조회를 여기 한 곳에 몰아뒀고
+  // localStorage 키 이름에도 deviceId를 그대로 넣어서 나중에 마이그레이션하기 쉽게 했다.
+  function getDeviceId() {
+    const KEY = 'kids_map_device_id';
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  }
+
+  function favoritesStorageKey() { return `kids_map_favorites_${getDeviceId()}`; }
+
+  function getFavoriteIds() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(favoritesStorageKey()) || '[]'));
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function isFavorite(id) { return getFavoriteIds().has(id); }
+
+  function toggleFavorite(id) {
+    const ids = getFavoriteIds();
+    if (ids.has(id)) ids.delete(id); else ids.add(id);
+    localStorage.setItem(favoritesStorageKey(), JSON.stringify([...ids]));
+    return ids.has(id);
+  }
+
+  // 카드/팝업의 하트 버튼에서 호출 - 아이콘만 즉시 바꾸고, "찜한 곳만 보기" 상태에서
+  // 해제한 경우엔 목록에서 바로 빠지도록 필터를 다시 돌린다.
+  window.toggleFavoriteUI = function (btn, id) {
+    const nowFav = toggleFavorite(id);
+    if (btn) btn.textContent = nowFav ? '❤️' : '🤍';
+    if (showFavoritesOnly && !nowFav) applyFilters();
   };
 
   const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 (GPS 거부/실패 시 기본값)
@@ -314,6 +378,7 @@
     return (
       `<div class="prf-popup">` +
         `<button type="button" class="popup-close" onclick="window.__closeInfoWindow()">×</button>` +
+        `<button type="button" class="popup-fav" onclick="toggleFavoriteUI(this, '${p.id}')">${isFavorite(p.id) ? '❤️' : '🤍'}</button>` +
         posterHtml +
         `<span class="genre">${p.genre}</span>` + approxHtml +
         `<h3>${p.title}</h3>` +
@@ -391,6 +456,7 @@
         : `<div class="thumb no-img">${iconFor(p)}</div>`;
       return (
         `<div class="list-card" data-idx="${i}">` +
+          `<button type="button" class="fav-btn" onclick="event.stopPropagation(); toggleFavoriteUI(this, '${p.id}')">${isFavorite(p.id) ? '❤️' : '🤍'}</button>` +
           thumb +
           `<div class="info">` +
             `<span class="genre">${p.genre}</span>` +
@@ -457,6 +523,7 @@
   }
 
   let searchQuery = '';
+  let showFavoritesOnly = false;
 
   function applyFilters() {
     closePopup(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
@@ -474,6 +541,10 @@
         (p.venue || '').toLowerCase().includes(q) ||
         (p.address || '').toLowerCase().includes(q)
       );
+    }
+    if (showFavoritesOnly) {
+      const favIds = getFavoriteIds();
+      filtered = filtered.filter(p => favIds.has(p.id));
     }
     if (dateVal) {
       const [y, m, d] = dateVal.split('-').map(Number);
@@ -602,6 +673,12 @@
         searchQuery = searchBox.value.trim();
         applyFilters();
       }, 250);
+    });
+
+    document.getElementById('favFilterBtn').addEventListener('click', () => {
+      showFavoritesOnly = !showFavoritesOnly;
+      document.getElementById('favFilterBtn').classList.toggle('active', showFavoritesOnly);
+      applyFilters();
     });
   }
 
