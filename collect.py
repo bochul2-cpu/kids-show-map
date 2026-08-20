@@ -1,9 +1,9 @@
-"""KOPIS(공연예술통합전산망) API로 아동 공연 목록을 모으고 data/places.json 으로 저장한다.
-하루 1회 배치 실행을 염두에 둔 스크립트.
+"""KOPIS(공연예술통합전산망) API로 전국 공연 목록을 모으고 data/places.json 으로 저장한다.
+매일 배치 실행을 염두에 둔 스크립트.
 
-흐름: 키워드로 공연 목록 검색 -> 공연 상세(가격/연령/포스터/시설ID) 조회 ->
-     시설 상세(정확한 주소/좌표) 조회, 실패 시 NAVER 지역검색으로 대략 위치 보정 ->
-     서울/경기 + 좌표가 확보된 것만 필터링 (그 외 상세 필드는 없어도 마커는 표시)
+흐름: 지역(16개 권역코드)별로 전체 장르를 페이지네이션으로 훑어 후보를 모으고 ->
+     공연 상세(가격/연령/포스터/시설ID/아동여부) 조회 ->
+     시설 상세(정확한 주소/좌표) 조회, 실패 시 NAVER 지역검색으로 대략 위치 보정
 """
 import json
 import time
@@ -15,17 +15,47 @@ import requests
 from settings import (
     KOPIS_BASE_URL,
     NAVER_API_URL,
-    SHOW_KEYWORDS,
-    KOPIS_GENRES,
-    KOPIS_REGION_CODES,
+    REGIONS,
     DAYS_AHEAD,
-    ALLOWED_ADDRESS_PREFIXES,
     DATA_PATH,
 )
 from config import KOPIS_SERVICE_KEY, NAVER_HEADERS
 
 REQUEST_DELAY = 0.1
 RETRY_ATTEMPTS = 3
+
+ADDRESS_PREFIX_TO_GROUP = [
+    ("서울", "수도권"),
+    ("인천", "수도권"),
+    ("경기", "수도권"),
+    ("대전", "충청권"),
+    ("세종", "충청권"),
+    ("충청북도", "충청권"),
+    ("충북", "충청권"),
+    ("충청남도", "충청권"),
+    ("충남", "충청권"),
+    ("강원", "강원권"),
+    ("전남광주", "호남권"),
+    ("전라남도", "호남권"),
+    ("광주", "호남권"),
+    ("전북", "호남권"),
+    ("전라북도", "호남권"),
+    ("대구", "대경권"),
+    ("경상북도", "대경권"),
+    ("경북", "대경권"),
+    ("부산", "동남권"),
+    ("울산", "동남권"),
+    ("경상남도", "동남권"),
+    ("경남", "동남권"),
+    ("제주", "제주권"),
+]
+
+
+def region_group_from_address(address: str) -> str:
+    for prefix, group in ADDRESS_PREFIX_TO_GROUP:
+        if address.startswith(prefix):
+            return group
+    return "기타"
 
 
 def request_with_retry(url: str, params: dict) -> requests.Response:
@@ -49,7 +79,7 @@ def parse_dbs(xml_text: str) -> list[dict]:
     ]
 
 
-def search_list(extra_params: dict, stdate: str, eddate: str) -> list[dict]:
+def search_region(region_code: str, stdate: str, eddate: str) -> list[dict]:
     results = []
     cpage = 1
     while True:
@@ -59,7 +89,7 @@ def search_list(extra_params: dict, stdate: str, eddate: str) -> list[dict]:
             "eddate": eddate,
             "cpage": cpage,
             "rows": 100,
-            **extra_params,
+            "signgucode": region_code,
         }
         response = request_with_retry(f"{KOPIS_BASE_URL}/pblprfr", params)
         items = parse_dbs(response.text)
@@ -71,14 +101,6 @@ def search_list(extra_params: dict, stdate: str, eddate: str) -> list[dict]:
         cpage += 1
         time.sleep(REQUEST_DELAY)
     return results
-
-
-def search_performances(keyword: str, stdate: str, eddate: str) -> list[dict]:
-    return search_list({"shprfnm": keyword}, stdate, eddate)
-
-
-def search_by_genre_region(genre: str, region_code: str, stdate: str, eddate: str) -> list[dict]:
-    return search_list({"shcate": genre, "signgucode": region_code}, stdate, eddate)
 
 
 def fetch_detail(mt20id: str) -> dict:
@@ -128,14 +150,17 @@ def naver_fallback_location(venue_name: str) -> dict | None:
 
 def build_place(detail: dict, facility: dict) -> dict:
     mt20id = detail.get("mt20id", "")
+    address = facility.get("adres", "")
     return {
         "id": mt20id,
         "title": detail.get("prfnm", ""),
         "genre": detail.get("genrenm", ""),
+        "is_child": detail.get("child") == "Y",
         "start_date": detail.get("prfpdfrom", ""),
         "end_date": detail.get("prfpdto", ""),
         "venue": detail.get("fcltynm", ""),
-        "address": facility.get("adres", ""),
+        "address": address,
+        "region_group": region_group_from_address(address),
         "lat": float(facility["la"]),
         "lon": float(facility["lo"]),
         "age": detail.get("prfage", ""),
@@ -158,35 +183,27 @@ def collect() -> list[dict]:
     seen_ids = set()
     candidate_ids = []
 
-    def add_items(items):
+    for region_code in REGIONS:
+        try:
+            items = search_region(region_code, stdate, eddate)
+        except requests.RequestException as e:
+            print(f"[경고] 지역 검색 실패({region_code}): {e}")
+            continue
+
         for item in items:
             mt20id = item.get("mt20id")
             if mt20id and mt20id not in seen_ids:
                 seen_ids.add(mt20id)
                 candidate_ids.append(mt20id)
-
-    for keyword in SHOW_KEYWORDS:
-        try:
-            add_items(search_performances(keyword, stdate, eddate))
-        except requests.RequestException as e:
-            print(f"[경고] '{keyword}' 검색 실패: {e}")
         time.sleep(REQUEST_DELAY)
 
-    # 제목에 "어린이" 등이 없어도 장르 x 지역으로 넓게 후보를 모으고,
-    # 실제 아동공연 여부는 아래에서 공식 child 플래그로 가려낸다
-    for region_code in KOPIS_REGION_CODES:
-        for genre in KOPIS_GENRES:
-            try:
-                add_items(search_by_genre_region(genre, region_code, stdate, eddate))
-            except requests.RequestException as e:
-                print(f"[경고] 장르 검색 실패({region_code}/{genre}): {e}")
-            time.sleep(REQUEST_DELAY)
+    print(f"[안내] 후보 {len(candidate_ids)}건, 상세 조회 시작")
 
     facility_cache: dict[str, dict] = {}
     places = []
     skipped_no_location = 0
 
-    for mt20id in candidate_ids:
+    for i, mt20id in enumerate(candidate_ids):
         try:
             detail = fetch_detail(mt20id)
         except requests.RequestException as e:
@@ -196,8 +213,6 @@ def collect() -> list[dict]:
 
         if not detail.get("prfnm"):
             continue
-        if detail.get("child") != "Y":
-            continue  # 아동 공연으로 공식 분류된 것만 남긴다
 
         mt10id = detail.get("mt10id")
         facility = {}
@@ -218,14 +233,14 @@ def collect() -> list[dict]:
                 facility = fallback
                 time.sleep(REQUEST_DELAY)
 
-        address = facility.get("adres", "")
-        if not address.startswith(ALLOWED_ADDRESS_PREFIXES):
-            continue
         if not facility.get("la") or not facility.get("lo"):
             skipped_no_location += 1
             continue
 
         places.append(build_place(detail, facility))
+
+        if (i + 1) % 200 == 0:
+            print(f"[진행] {i + 1}/{len(candidate_ids)}건 처리")
 
     if skipped_no_location:
         print(f"[안내] 좌표를 못 구해 지도에 못 올린 공연 {skipped_no_location}건")

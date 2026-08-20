@@ -1,3 +1,4 @@
 config.py
+test_api.py
 __pycache__/
 *.pyc

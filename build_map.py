@@ -1,10 +1,9 @@
 """정적 index.html 셸을 생성한다. 공연 데이터는 빌드 시점에 박아넣지 않고,
-런타임에 data/places.json 을 fetch 해서 그린다 - 그래야 매일 배치가 데이터만
-갱신해도(HTML 재생성 없이) 최신 상태가 반영된다.
+런타임에 data/places.json 을 fetch 해서 그린다.
 
-화면 구성: NAVER 지도, 클러스터 -> 개별 핀, 카테고리/날짜 필터, 인포윈도우
-(기간/가격/포스터/링크), 길찾기 버튼. 첫 화면은 부천 전역이 보이도록 고정하고
-너무 축소하지 못하게 minZoom 을 걸어둔다."""
+화면 구성: NAVER 지도, 지역/카테고리/날짜 필터, 검색, 클러스터 -> 개별 핀,
+인포윈도우(기간/가격/포스터/링크), 길찾기 버튼. 첫 화면은 사용자 GPS 위치
+기준으로 잡고(거부 시 부천 기본값), 그 위치가 속한 권역을 필터에 자동 선택한다."""
 from settings import MAP_OUTPUT_PATH
 from config import NAVER_MAP_CLIENT_ID
 
@@ -13,16 +12,34 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>어린이 공연 지도</title>
+<title>공연 지도</title>
 <style>
   html, body {{ height: 100%; margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif; }}
   #map {{ height: 100%; width: 100%; }}
 
   .filter-bar {{
-    position: absolute; top: 10px; left: 10px; right: 10px;
+    position: absolute; top: 8px; left: 8px; right: 8px;
     z-index: 1000; background: white; border-radius: 14px;
     box-shadow: 0 1px 8px rgba(0,0,0,0.25); padding: 8px 10px;
   }}
+  .search-row {{ position: relative; margin-bottom: 6px; }}
+  .search-row input {{
+    width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 10px;
+    padding: 8px 10px; font-size: 13px;
+  }}
+  .search-results {{
+    position: absolute; top: 100%; left: 0; right: 0; background: white;
+    border: 1px solid #eee; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    margin-top: 4px; max-height: 220px; overflow-y: auto; z-index: 1001; display: none;
+  }}
+  .search-results.show {{ display: block; }}
+  .search-results div {{
+    padding: 8px 10px; font-size: 12.5px; cursor: pointer; border-bottom: 1px solid #f2f2f2;
+  }}
+  .search-results div:last-child {{ border-bottom: none; }}
+  .search-results div:hover {{ background: #f5f4ff; }}
+  .search-results .sr-genre {{ color: #999; font-size: 11px; margin-left: 4px; }}
+
   .chip-row {{
     display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;
     -webkit-overflow-scrolling: touch;
@@ -33,19 +50,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border-radius: 16px; padding: 5px 12px; font-size: 12.5px; cursor: pointer;
     white-space: nowrap;
   }}
-  .chip.active {{ background: #5b4fe0; border-color: #5b4fe0; color: white; }}
-  .date-row {{ display: flex; align-items: center; gap: 6px; margin-top: 6px; }}
+  .region-row .chip.active {{ background: #0aa66b; border-color: #0aa66b; color: white; }}
+  .cat-row .chip.active {{ background: #5b4fe0; border-color: #5b4fe0; color: white; }}
+  .date-row {{ display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }}
+  .date-row .chip.active {{ background: #e08a00; border-color: #e08a00; color: white; }}
   .date-row input[type=date] {{
-    flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
-  }}
-  .date-row button {{
-    border: 1px solid #ddd; background: #f5f5f7; color: #555; border-radius: 8px;
-    padding: 5px 10px; font-size: 12.5px; cursor: pointer;
+    border: 1px solid #ddd; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
+    accent-color: #5b4fe0; color: #555;
   }}
   .count-text {{ margin-top: 6px; font-size: 11.5px; color: #888; }}
 
   /* 커스텀 핀 마커 */
-  .prf-pin {{ filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }}
+  .prf-pin {{
+    display: flex; flex-direction: column; align-items: center;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35));
+  }}
+  .prf-pin .pin-badge {{
+    width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid white;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    line-height: 1;
+  }}
+  .prf-pin .pin-tail {{
+    width: 0; height: 0; margin-top: -3px;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+  }}
 
   /* 커스텀 클러스터 배지 */
   .cluster-badge {{
@@ -98,10 +126,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div id="map"></div>
 <div class="filter-bar">
-  <div class="chip-row" id="chipRow"></div>
+  <div class="search-row">
+    <input type="text" id="searchBox" placeholder="공연명 검색 (예: 신데렐라)">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <div class="chip-row region-row" id="regionChipRow"></div>
+  <div class="chip-row cat-row" id="catChipRow"></div>
   <div class="date-row">
+    <button type="button" class="chip" data-quick="today">오늘</button>
+    <button type="button" class="chip" data-quick="tomorrow">내일</button>
+    <button type="button" class="chip" data-quick="weekend">이번 주말</button>
+    <button type="button" class="chip" data-quick="all">전체보기</button>
     <input type="date" id="dateFilter">
-    <button id="dateReset" type="button">전체보기</button>
   </div>
   <div class="count-text" id="countText">불러오는 중...</div>
 </div>
@@ -119,30 +155,48 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }}, 1200);
   }};
 
-  // 첫 화면은 부천시 전역이 보이도록 고정하고, 너무 축소해서 지저분해지지 않게 minZoom을 건다
-  const map = new naver.maps.Map('map', {{ zoom: 12, minZoom: 9 }});
-  const BUCHEON_BOUNDS = new naver.maps.LatLngBounds(
-    new naver.maps.LatLng(37.454, 126.712),
-    new naver.maps.LatLng(37.578, 126.860)
-  );
-  map.fitBounds(BUCHEON_BOUNDS);
+  const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 (GPS 거부/실패 시 기본값)
+  const map = new naver.maps.Map('map', {{
+    zoom: 12,
+    minZoom: 6,
+    center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
+  }});
 
-  const pinSvg = `<div class="prf-pin"><svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#8b7cf6"/>
-        <stop offset="100%" stop-color="#5b4fe0"/>
-      </linearGradient>
-    </defs>
-    <path d="M15 0C6.716 0 0 6.716 0 15c0 11.25 15 23 15 23s15-11.75 15-23C30 6.716 23.284 0 15 0z" fill="url(#pinGrad)"/>
-    <circle cx="15" cy="14" r="6" fill="white"/>
-  </svg></div>`;
-
-  const pinIcon = {{
-    content: pinSvg,
-    size: new naver.maps.Size(30, 38),
-    anchor: new naver.maps.Point(15, 38),
+  const REGION_CENTERS = {{
+    '수도권': [37.5665, 126.9780],
+    '충청권': [36.3504, 127.3845],
+    '강원권': [37.8813, 127.7298],
+    '호남권': [35.1595, 126.8526],
+    '대경권': [35.8714, 128.6014],
+    '동남권': [35.1796, 129.0756],
+    '제주권': [33.4996, 126.5312],
   }};
+
+  function pickRegionGroup(lat, lon) {{
+    let best = null, bestDist = Infinity;
+    for (const [name, c] of Object.entries(REGION_CENTERS)) {{
+      const d = (lat - c[0]) ** 2 + (lon - c[1]) ** 2;
+      if (d < bestDist) {{ bestDist = d; best = name; }}
+    }}
+    return best;
+  }}
+
+  function pinIconFor(p) {{
+    const isChild = p.is_child;
+    const bg = isChild ? 'linear-gradient(160deg, #ff9a7a, #ff6a5b)' : 'linear-gradient(160deg, #8b7cf6, #5b4fe0)';
+    const tailColor = isChild ? '#ff6a5b' : '#5b4fe0';
+    const icon = isChild ? '👶' : (GENRE_ICONS[p.genre] || '🎫');
+    const html =
+      `<div class="prf-pin">` +
+        `<div class="pin-badge" style="background:${{bg}}">${{icon}}</div>` +
+        `<div class="pin-tail" style="border-top:8px solid ${{tailColor}}"></div>` +
+      `</div>`;
+    return {{
+      content: html,
+      size: new naver.maps.Size(32, 40),
+      anchor: new naver.maps.Point(16, 40),
+    }};
+  }}
 
   const infowindow = new naver.maps.InfoWindow({{
     content: '<div></div>',
@@ -152,16 +206,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     pixelOffset: new naver.maps.Point(0, -10),
   }});
 
-  function buildMarker(p) {{
-    const marker = new naver.maps.Marker({{
-      position: new naver.maps.LatLng(p.lat, p.lon),
-      icon: pinIcon,
-    }});
+  const GENRE_ICONS = {{
+    '뮤지컬': '🎵', '연극': '🎭', '서양음악(클래식)': '🎻', '한국음악(국악)': '🥁',
+    '대중음악': '🎤', '무용(서양/한국무용)': '💃', '대중무용': '🕺', '서커스/마술': '🎪',
+    '복합': '✨',
+  }};
 
+  function buildPopupHtml(p) {{
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
     const approxHtml = p.approx_location ? `<span class="approx">위치 대략</span>` : '';
-
-    const popupHtml =
+    return (
       `<div class="prf-popup">` +
         posterHtml +
         `<span class="genre">${{p.genre}}</span>` + approxHtml +
@@ -178,13 +232,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">예매/상세보기</a>` +
           `<button class="directions-btn" onclick="openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
         `</div>` +
-      `</div>`;
+      `</div>`
+    );
+  }}
 
+  function buildMarker(p) {{
+    const marker = new naver.maps.Marker({{
+      position: new naver.maps.LatLng(p.lat, p.lon),
+      icon: pinIconFor(p),
+    }});
     naver.maps.Event.addListener(marker, 'click', function () {{
-      infowindow.setContent(popupHtml);
+      infowindow.setContent(buildPopupHtml(p));
       infowindow.open(map, marker);
     }});
-
     return marker;
   }}
 
@@ -194,13 +254,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return new Date(parts[0], parts[1] - 1, parts[2]);
   }}
 
+  function fmtDate(d) {{
+    const pad = n => String(n).padStart(2, '0');
+    return `${{d.getFullYear()}}-${{pad(d.getMonth() + 1)}}-${{pad(d.getDate())}}`;
+  }}
+
   let allPlaces = [];
   let currentMarkers = [];
+  let currentClusterer = null;
 
   function renderMarkers(list) {{
     currentMarkers.forEach(m => m.setMap(null));
+    if (currentClusterer) currentClusterer.setMap(null); // 이전 클러스터 말풍선 정리 (안 하면 옛 클러스터가 지도에 남음)
     currentMarkers = list.map(buildMarker);
-    new MarkerClustering({{
+    currentClusterer = new MarkerClustering({{
       minClusterSize: 2,
       maxZoom: 15,
       map: map,
@@ -221,13 +288,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
+  function activeValue(rowEl) {{
+    const active = rowEl.querySelector('.chip.active');
+    return active ? active.dataset.value : '';
+  }}
+
   function applyFilters() {{
-    const activeChip = document.querySelector('.chip.active');
-    const genre = activeChip ? activeChip.dataset.genre : '';
+    const region = activeValue(document.getElementById('regionChipRow'));
+    const cat = activeValue(document.getElementById('catChipRow'));
     const dateVal = document.getElementById('dateFilter').value;
 
     let filtered = allPlaces;
-    if (genre) filtered = filtered.filter(p => p.genre === genre);
+    if (region) filtered = filtered.filter(p => p.region_group === region);
+    if (cat === '__child__') filtered = filtered.filter(p => p.is_child);
+    else if (cat) filtered = filtered.filter(p => p.genre === cat);
     if (dateVal) {{
       const [y, m, d] = dateVal.split('-').map(Number);
       const sel = new Date(y, m - 1, d);
@@ -242,25 +316,111 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     document.getElementById('countText').textContent = `공연 ${{filtered.length}}/${{allPlaces.length}}건`;
   }}
 
-  function initFilters(places) {{
-    const genres = Array.from(new Set(places.map(p => p.genre).filter(Boolean))).sort();
-    const cats = ['전체', ...genres];
-    const chipRow = document.getElementById('chipRow');
-    chipRow.innerHTML = cats.map((c, i) =>
-      `<button type="button" class="chip${{i === 0 ? ' active' : ''}}" data-genre="${{c === '전체' ? '' : c}}">${{c}}</button>`
+  function setActiveChip(rowEl, value) {{
+    rowEl.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b.dataset.value === value));
+  }}
+
+  function initChipRow(rowEl, items) {{
+    rowEl.innerHTML = items.map((it, i) =>
+      `<button type="button" class="chip${{i === 0 ? ' active' : ''}}" data-value="${{it.value}}">${{it.label}}</button>`
     ).join('');
-    chipRow.querySelectorAll('.chip').forEach(btn => {{
+    rowEl.querySelectorAll('.chip').forEach(btn => {{
       btn.addEventListener('click', () => {{
-        chipRow.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+        setActiveChip(rowEl, btn.dataset.value);
+        applyFilters();
+      }});
+    }});
+  }}
+
+  function initFilters(places) {{
+    // 수집 기간을 벗어난 날짜를 고르면 무조건 0건이 되므로, 실제 데이터의 최대 종료일까지만 선택 가능하게 막는다
+    const dateInput = document.getElementById('dateFilter');
+    const today = new Date();
+    let maxEnd = today;
+    places.forEach(p => {{
+      const end = toDateObj(p.end_date);
+      if (end && end > maxEnd) maxEnd = end;
+    }});
+    dateInput.min = fmtDate(today);
+    dateInput.max = fmtDate(maxEnd);
+
+    initChipRow(document.getElementById('regionChipRow'), [
+      {{ value: '', label: '전체' }},
+      {{ value: '수도권', label: '수도권' }},
+      {{ value: '충청권', label: '충청권' }},
+      {{ value: '강원권', label: '강원권' }},
+      {{ value: '호남권', label: '호남권' }},
+      {{ value: '대경권', label: '대경권' }},
+      {{ value: '동남권', label: '동남권' }},
+      {{ value: '제주권', label: '제주권' }},
+    ]);
+
+    const genres = Array.from(new Set(places.map(p => p.genre).filter(Boolean))).sort();
+    const catItems = [
+      {{ value: '', label: '전체' }},
+      {{ value: '__child__', label: '👶 아동' }},
+      ...genres.map(g => ({{ value: g, label: (GENRE_ICONS[g] || '🎫') + ' ' + g }})),
+    ];
+    initChipRow(document.getElementById('catChipRow'), catItems);
+
+    document.getElementById('dateFilter').addEventListener('change', applyFilters);
+    document.querySelectorAll('.date-row .chip').forEach(btn => {{
+      btn.addEventListener('click', () => {{
+        document.querySelectorAll('.date-row .chip').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        const q = btn.dataset.quick;
+        if (q === 'today') {{
+          dateInput.value = fmtDate(new Date());
+        }} else if (q === 'tomorrow') {{
+          const d = new Date(); d.setDate(d.getDate() + 1);
+          dateInput.value = fmtDate(d);
+        }} else if (q === 'weekend') {{
+          const d = new Date();
+          const day = d.getDay();
+          const addDays = (6 - day + 7) % 7;
+          d.setDate(d.getDate() + addDays);
+          dateInput.value = fmtDate(d);
+        }} else {{
+          dateInput.value = '';
+        }}
         applyFilters();
       }});
     }});
 
-    document.getElementById('dateFilter').addEventListener('change', applyFilters);
-    document.getElementById('dateReset').addEventListener('click', () => {{
-      document.getElementById('dateFilter').value = '';
-      applyFilters();
+    // 기본값: 오늘
+    dateInput.value = fmtDate(today);
+    document.querySelector('.date-row .chip[data-quick="today"]').classList.add('active');
+
+    // 검색
+    const searchBox = document.getElementById('searchBox');
+    const searchResults = document.getElementById('searchResults');
+    searchBox.addEventListener('input', () => {{
+      const q = searchBox.value.trim();
+      if (!q) {{ searchResults.classList.remove('show'); searchResults.innerHTML = ''; return; }}
+      const matches = allPlaces.filter(p => p.title.includes(q)).slice(0, 8);
+      if (matches.length === 0) {{
+        searchResults.innerHTML = '<div>검색 결과 없음</div>';
+      }} else {{
+        searchResults.innerHTML = matches.map((p, i) =>
+          `<div data-idx="${{i}}">${{p.title}}<span class="sr-genre">${{p.venue}}</span></div>`
+        ).join('');
+        searchResults.querySelectorAll('div[data-idx]').forEach(el => {{
+          el.addEventListener('click', () => {{
+            const p = matches[Number(el.dataset.idx)];
+            const pos = new naver.maps.LatLng(p.lat, p.lon);
+            map.setCenter(pos);
+            map.setZoom(16);
+            infowindow.setContent(buildPopupHtml(p));
+            infowindow.open(map, pos);
+            searchResults.classList.remove('show');
+            searchBox.value = p.title;
+          }});
+        }});
+      }}
+      searchResults.classList.add('show');
+    }});
+    document.addEventListener('click', (e) => {{
+      if (!e.target.closest('.search-row')) searchResults.classList.remove('show');
     }});
   }}
 
@@ -270,6 +430,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       allPlaces = data.places;
       initFilters(allPlaces);
       applyFilters();
+
+      if (navigator.geolocation) {{
+        navigator.geolocation.getCurrentPosition(
+          pos => {{
+            const lat = pos.coords.latitude, lon = pos.coords.longitude;
+            map.setCenter(new naver.maps.LatLng(lat, lon));
+            map.setZoom(13);
+            const group = pickRegionGroup(lat, lon);
+            setActiveChip(document.getElementById('regionChipRow'), group);
+            applyFilters();
+          }},
+          () => {{ /* 거부/실패 시 기본값(부천) 유지 */ }},
+          {{ timeout: 5000 }}
+        );
+      }}
     }})
     .catch(() => {{
       document.getElementById('countText').textContent = '데이터를 불러오지 못했습니다';
