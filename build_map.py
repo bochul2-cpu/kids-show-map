@@ -4,7 +4,7 @@
 화면 구성: NAVER 지도, 지역/카테고리/날짜 필터, 검색, 클러스터 -> 개별 핀,
 인포윈도우(기간/가격/포스터/링크), 길찾기 버튼. 첫 화면은 사용자 GPS 위치
 기준으로 잡고(거부 시 부천 기본값), 그 위치가 속한 권역을 필터에 자동 선택한다."""
-from settings import MAP_OUTPUT_PATH
+from settings import MAP_OUTPUT_PATH, GA_MEASUREMENT_ID
 from config import NAVER_MAP_CLIENT_ID
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -13,6 +13,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>공연 지도</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id={ga_measurement_id}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{ dataLayer.push(arguments); }}
+  gtag('js', new Date());
+  gtag('config', '{ga_measurement_id}');
+</script>
 <style>
   html, body {{ height: 100%; margin: 0; font-family: -apple-system, "Malgun Gothic", sans-serif; }}
   #map {{ height: 100%; width: 100%; }}
@@ -483,7 +490,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 def main():
-    html = HTML_TEMPLATE.format(naver_map_client_id=NAVER_MAP_CLIENT_ID)
+    html = HTML_TEMPLATE.format(naver_map_client_id=NAVER_MAP_CLIENT_ID, ga_measurement_id=GA_MEASUREMENT_ID)
     with open(MAP_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
 

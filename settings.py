@@ -40,3 +40,6 @@ REGION_GROUPS = {
 
 DATA_PATH = "data/places.json"
 MAP_OUTPUT_PATH = "index.html"
+
+# Google Analytics(GA4) 측정 ID - 방문자 통계용. 공개돼도 안전한 값이라 여기(비밀 아님)에 둔다.
+GA_MEASUREMENT_ID = "G-GJF3EHCV2F"
