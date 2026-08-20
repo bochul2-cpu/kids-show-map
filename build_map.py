@@ -87,6 +87,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .main-layout {{ flex: 1; display: flex; position: relative; overflow: hidden; }}
   #map {{ flex: 1; height: 100%; }}
 
+  .locate-btn {{
+    position: absolute; right: 12px; bottom: 56px; z-index: 25;
+    width: 42px; height: 42px; border-radius: 50%; border: none;
+    background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }}
+  .locate-btn:active {{ background: #fff1ea; }}
+
   .list-panel {{
     width: 380px; flex-shrink: 0; background: #fff8f3; overflow-y: auto;
     border-right: 1px solid #ffe1d0;
@@ -130,6 +138,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   /* ---------- 모바일: 지도 위로 올라오는 바텀시트 ---------- */
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
+    .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
     /* 편의시설/반경 필터는 자주 안 쓰는 것들이라 모바일 상단바가 너무 길어지지 않게
        기본은 접어두고, "상세 필터" 버튼으로 펼칠 수 있게 한다 (데스크톱은 그대로 펼쳐둠). */
     .more-filters-toggle {{ display: block; }}
@@ -266,6 +275,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="list-items" id="listItems"></div>
   </div>
   <div id="map"></div>
+  <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
@@ -922,27 +932,39 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
+  // 페이지 로드 시 자동으로 한 번 호출하는 것과, 아래 "현재 위치로 이동" 버튼이
+  // 같은 로직을 쓴다.
+  function goToCurrentLocation(zoom, onDenied) {{
+    if (!navigator.geolocation) {{
+      if (onDenied) onDenied();
+      return;
+    }}
+    navigator.geolocation.getCurrentPosition(
+      pos => {{
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        userPosition = {{ lat, lon }};
+        document.getElementById('radiusRow').style.display = 'flex';
+        map.setCenter(new naver.maps.LatLng(lat, lon));
+        map.setZoom(zoom);
+      }},
+      () => {{ if (onDenied) onDenied(); }},
+      {{ timeout: 5000 }}
+    );
+  }}
+
+  document.getElementById('locateBtn').addEventListener('click', () => {{
+    goToCurrentLocation(15, () => {{
+      alert('위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.');
+    }});
+  }});
+
   fetch('data/places.json')
     .then(res => res.json())
     .then(data => {{
       allPlaces = data.places;
       initFilters(allPlaces);
       applyFilters();
-
-      if (navigator.geolocation) {{
-        navigator.geolocation.getCurrentPosition(
-          pos => {{
-            const lat = pos.coords.latitude, lon = pos.coords.longitude;
-            userPosition = {{ lat, lon }};
-            document.getElementById('radiusRow').style.display = 'flex';
-            map.setCenter(new naver.maps.LatLng(lat, lon));
-            map.setZoom(13);
-            applyFilters();
-          }},
-          () => {{ /* 거부/실패 시 기본값(부천) 유지 */ }},
-          {{ timeout: 5000 }}
-        );
-      }}
+      goToCurrentLocation(13); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
     }})
     .catch(() => {{
       document.getElementById('countText').textContent = '데이터를 불러오지 못했습니다';
