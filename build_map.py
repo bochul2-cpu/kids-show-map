@@ -266,13 +266,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     );
   }}
 
+  // 팝업이 위쪽 필터바에 가리지 않도록, 클릭한 위치가 화면 중앙보다 아래쪽에 오게 이동시킨다
+  function panForPopup(position) {{
+    const proj = map.getProjection();
+    const pt = proj.fromCoordToOffset(position);
+    const shifted = new naver.maps.Point(pt.x, pt.y - 140);
+    map.panTo(proj.fromOffsetToCoord(shifted));
+  }}
+
   function buildMarker(p) {{
     const marker = new naver.maps.Marker({{
       position: new naver.maps.LatLng(p.lat, p.lon),
       icon: pinIconFor(p),
     }});
     naver.maps.Event.addListener(marker, 'click', function () {{
-      map.panTo(marker.getPosition()); // 화면 가장자리에서 팝업이 잘리지 않도록 클릭한 마커를 중앙으로
+      panForPopup(marker.getPosition());
       infowindow.setContent(buildPopupHtml(p));
       infowindow.open(map, marker);
     }});
@@ -442,8 +450,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           el.addEventListener('click', () => {{
             const p = matches[Number(el.dataset.idx)];
             const pos = new naver.maps.LatLng(p.lat, p.lon);
-            map.setCenter(pos);
             map.setZoom(16);
+            panForPopup(pos);
             infowindow.setContent(buildPopupHtml(p));
             infowindow.open(map, pos);
             searchResults.classList.remove('show');
