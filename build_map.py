@@ -190,8 +190,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     '충청권': [36.3504, 127.3845],
     '강원권': [37.8813, 127.7298],
     '호남권': [35.1595, 126.8526],
-    '대경권': [35.8714, 128.6014],
-    '동남권': [35.1796, 129.0756],
+    '영남권': [35.5, 128.8],
     '제주권': [33.4996, 126.5312],
   }};
 
@@ -333,6 +332,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
 
   function applyFilters() {{
+    infowindow.close(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
     const region = activeValue(document.getElementById('regionChipRow'));
     const cat = activeValue(document.getElementById('catChipRow'));
     const dateVal = document.getElementById('dateFilter').value;
@@ -359,7 +359,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     rowEl.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b.dataset.value === value));
   }}
 
-  function initChipRow(rowEl, items) {{
+  function initChipRow(rowEl, items, onSelect) {{
     rowEl.innerHTML = items.map((it, i) =>
       `<button type="button" class="chip${{i === 0 ? ' active' : ''}}" data-value="${{it.value}}">${{it.label}}</button>`
     ).join('');
@@ -367,8 +367,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       btn.addEventListener('click', () => {{
         setActiveChip(rowEl, btn.dataset.value);
         applyFilters();
+        if (onSelect) onSelect(btn.dataset.value);
       }});
     }});
+  }}
+
+  // 지역 칩을 고르면 필터링뿐 아니라 그 권역 중심으로 지도도 이동시킨다 (카테고리 칩은 필터링만)
+  function panToRegion(value) {{
+    if (value && REGION_CENTERS[value]) {{
+      const c = REGION_CENTERS[value];
+      map.setZoom(10);
+      map.panTo(new naver.maps.LatLng(c[0], c[1]));
+    }} else {{
+      map.setZoom(12);
+      map.panTo(new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]));
+    }}
   }}
 
   function initFilters(places) {{
@@ -392,10 +405,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       {{ value: '충청권', label: '충청권' }},
       {{ value: '강원권', label: '강원권' }},
       {{ value: '호남권', label: '호남권' }},
-      {{ value: '대경권', label: '대경권' }},
-      {{ value: '동남권', label: '동남권' }},
+      {{ value: '영남권', label: '영남권' }},
       {{ value: '제주권', label: '제주권' }},
-    ]);
+    ], panToRegion);
 
     const genres = Array.from(new Set(places.map(p => p.genre).filter(Boolean))).sort();
     const catItems = [
