@@ -223,6 +223,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }});
   window.__closeInfoWindow = function () {{ infowindow.close(); }};
   naver.maps.Event.addListener(map, 'click', () => infowindow.close());
+  // 축소해서 마커가 클러스터로 합쳐지는 시점(클러스터 maxZoom=15 근처)에는 열려있던 팝업도 같이 닫는다
+  naver.maps.Event.addListener(map, 'zoom_changed', function (zoom) {{
+    if (zoom < 14) infowindow.close();
+  }});
 
   const GENRE_ICONS = {{
     '뮤지컬': '🎵', '연극': '🎭', '서양음악(클래식)': '🎻', '한국음악(국악)': '🥁',
