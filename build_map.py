@@ -377,11 +377,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     '복합': '✨',
   }};
 
-  // 대분류(10개) 아이콘 - 마커/칩에서 우선적으로 쓴다
+  // 대분류(8개) 아이콘 - 마커/칩에서 우선적으로 쓴다
   const CATEGORY_ICONS = {{
     '공연·전시': '🎭', '축제': '🎪', '나들이·산책': '🌳', '동물원·수족관': '🐾',
-    '체험·놀이': '🙌', '물놀이': '💦', '캠핑·글램핑': '⛺', '놀이공원': '🎢',
-    '스키·눈썰매': '⛷️', '쇼핑몰': '🛍️',
+    '체험·놀이': '🙌', '물놀이': '💦', '놀이공원': '🎢', '쇼핑몰': '🛍️',
   }};
 
   function iconFor(p) {{
@@ -392,7 +391,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   // (예: 한겨울에 물놀이 칩을 보여줘봤자 0건이라 혼란만 줌)
   const SEASONAL_CATEGORIES = {{
     '물놀이': [4, 5, 6, 7, 8, 9, 10],
-    '스키·눈썰매': [11, 12, 1, 2, 3],
   }};
 
   function isInSeason(name) {{
@@ -826,7 +824,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     // 카테고리는 공연·전시로 시작한다.
     const CATEGORY_ORDER = [
       '공연·전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰',
-      '물놀이', '캠핑·글램핑', '놀이공원', '스키·눈썰매',
+      '물놀이', '놀이공원',
     ];
     const presentCategories = new Set(places.map(p => p.category).filter(Boolean));
     const categories = CATEGORY_ORDER.filter(c => presentCategories.has(c)).filter(isInSeason);
