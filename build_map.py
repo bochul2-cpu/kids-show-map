@@ -56,6 +56,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .cat-row .chip.active {{ background: #ff7a50; border-color: #ff7a50; color: white; }}
   .amenity-row .chip.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
   .radius-row .chip.active {{ background: #7b61ff; border-color: #7b61ff; color: white; }}
+  .more-filters-toggle {{
+    display: none; width: 100%; text-align: left; background: none; border: none;
+    color: #999; font-size: 11.5px; padding: 2px 0 6px; cursor: pointer; font-family: inherit;
+  }}
   .date-row {{ display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }}
   .date-row .chip.active {{ background: #ffb100; border-color: #ffb100; color: white; }}
   .date-row input[type=date] {{
@@ -118,6 +122,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   /* ---------- 모바일: 지도 위로 올라오는 바텀시트 ---------- */
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
+    /* 편의시설/반경 필터는 자주 안 쓰는 것들이라 모바일 상단바가 너무 길어지지 않게
+       기본은 접어두고, "상세 필터" 버튼으로 펼칠 수 있게 한다 (데스크톱은 그대로 펼쳐둠). */
+    .more-filters-toggle {{ display: block; }}
+    .extra-filters {{ display: none; }}
+    .extra-filters.expanded {{ display: block; }}
     .list-panel {{
       position: absolute; left: 0; right: 0; bottom: 0; width: auto;
       max-height: 78%; border-right: none; border-radius: 18px 18px 0 0;
@@ -204,12 +213,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
   <div class="chip-row region-row" id="regionChipRow"></div>
   <div class="chip-row cat-row" id="catChipRow"></div>
-  <div class="chip-row amenity-row" id="amenityChipRow"></div>
-  <div class="chip-row radius-row" id="radiusRow" style="display:none;">
-    <button type="button" class="chip active" data-radius="">반경 전체</button>
-    <button type="button" class="chip" data-radius="5">5km</button>
-    <button type="button" class="chip" data-radius="10">10km</button>
-    <button type="button" class="chip" data-radius="20">20km</button>
+  <button type="button" class="more-filters-toggle" id="moreFiltersToggle">🔧 상세 필터 더보기 ▾</button>
+  <div class="extra-filters" id="extraFilters">
+    <div class="chip-row amenity-row" id="amenityChipRow"></div>
+    <div class="chip-row radius-row" id="radiusRow" style="display:none;">
+      <button type="button" class="chip active" data-radius="">반경 전체</button>
+      <button type="button" class="chip" data-radius="5">5km</button>
+      <button type="button" class="chip" data-radius="10">10km</button>
+      <button type="button" class="chip" data-radius="20">20km</button>
+    </div>
   </div>
   <div class="date-row">
     <button type="button" class="chip" data-quick="today">오늘</button>
@@ -598,6 +610,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
+  function updateMoreFiltersLabel() {{
+    const btn = document.getElementById('moreFiltersToggle');
+    const expanded = document.getElementById('extraFilters').classList.contains('expanded');
+    const activeCount = selectedAmenities.size + (selectedRadiusKm ? 1 : 0);
+    const suffix = activeCount > 0 ? ` (${{activeCount}}개 적용됨)` : '';
+    btn.textContent = `🔧 상세 필터${{suffix}} ${{expanded ? '접기 ▲' : '더보기 ▾'}}`;
+  }}
+
   function activeValue(rowEl) {{
     const active = rowEl.querySelector('.chip.active');
     return active ? active.dataset.value : '';
@@ -751,6 +771,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         if (selectedAmenities.has(v)) selectedAmenities.delete(v); else selectedAmenities.add(v);
         btn.classList.toggle('active');
         applyFilters();
+        updateMoreFiltersLabel();
       }});
     }});
 
@@ -764,8 +785,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const v = btn.dataset.radius;
         selectedRadiusKm = v ? Number(v) : null;
         applyFilters();
+        updateMoreFiltersLabel();
       }});
     }});
+
+    // 편의시설/반경은 모바일에서 기본 접혀있다 - 지금 몇 개가 적용돼 있는지 버튼
+    // 라벨에 표시해서, 접힌 상태에서도 필터가 걸려있다는 걸 놓치지 않게 한다.
+    const moreFiltersToggle = document.getElementById('moreFiltersToggle');
+    const extraFilters = document.getElementById('extraFilters');
+    moreFiltersToggle.addEventListener('click', () => {{
+      extraFilters.classList.toggle('expanded');
+      updateMoreFiltersLabel();
+    }});
+    updateMoreFiltersLabel();
 
     document.getElementById('dateFilter').addEventListener('change', applyFilters);
     document.querySelectorAll('.date-row .chip').forEach(btn => {{
