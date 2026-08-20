@@ -25,6 +25,7 @@ from collect import request_with_retry, clean_telno
 REQUEST_DELAY = 0.05
 ALWAYS_OPEN_START = "2000.01.01"
 ALWAYS_OPEN_END = "2099.12.31"
+KST = timezone(timedelta(hours=9))
 
 
 def tour_request(endpoint: str, params: dict) -> dict:
@@ -133,8 +134,21 @@ def build_tour_place(item: dict, category: str, genre_label: str, detail: dict, 
         return None
 
     if is_festival:
-        start_date = fmt_tour_date(detail.get("eventstartdate", "")) or ALWAYS_OPEN_START
-        end_date = fmt_tour_date(detail.get("eventenddate", "")) or ALWAYS_OPEN_END
+        start_date = fmt_tour_date(detail.get("eventstartdate", ""))
+        end_date = fmt_tour_date(detail.get("eventenddate", ""))
+        if not start_date or not end_date:
+            # 실제 기간을 못 구한 축제는 "상시 운영"처럼 보이는 가짜 기간(2000~2099)을
+            # 보여주느니 아예 빼는 게 낫다 (detailIntro2 실패 시 - 대개 TourAPI 일일
+            # 트래픽 한도 초과 - 여기 걸린다)
+            return None
+        try:
+            end_dt = datetime.strptime(end_date, "%Y.%m.%d").date()
+        except ValueError:
+            return None
+        if end_dt < datetime.now(KST).date():
+            # 이미 끝난 축제는 실제 기간이 확인돼도 지금 시점엔 의미가 없다 (TourAPI
+            # 목록엔 지난 축제가 안 지워지고 계속 남아있는 경우가 있다)
+            return None
         price = detail.get("usetimefestival", "")
         schedule = detail.get("playtime", "")
         age = detail.get("agelimit", "")
@@ -171,10 +185,7 @@ def build_tour_place(item: dict, category: str, genre_label: str, detail: dict, 
     }
 
 
-def collect_tour_places() -> list[dict]:
-    seen_ids = set()
-    places = []
-
+def _make_add_place(seen_ids, places):
     def add_place(item, category, genre_label, needs_detail, is_festival, region_group):
         content_id = item.get("contentid")
         if not content_id or content_id in seen_ids:
@@ -192,6 +203,32 @@ def collect_tour_places() -> list[dict]:
         place = build_tour_place(item, category, genre_label, detail, region_group, is_festival)
         if place:
             places.append(place)
+    return add_place
+
+
+def collect_festivals(seen_ids: set | None = None) -> list[dict]:
+    """축제만 모은다. TourAPI 일일 트래픽 한도 초과로 축제 상세(기간)를 못 가져왔을 때,
+    전체(카테고리+키워드까지)를 다시 돌리지 않고 축제만 적은 요청 수로 복구하는 용도로도 쓴다."""
+    places: list[dict] = []
+    add_place = _make_add_place(seen_ids if seen_ids is not None else set(), places)
+    for area_code in TOUR_AREA_CODES:
+        try:
+            items = fetch_area_festivals(area_code)
+        except requests.RequestException as e:
+            print(f"[경고] 축제/{area_code} 조회 실패: {e}")
+            continue
+        region_group = region_group_from_area(area_code)
+        for item in items:
+            add_place(item, "축제", "축제", False, True, region_group)
+        time.sleep(REQUEST_DELAY)
+    print(f"[진행] 축제 완료, 누적 {len(places)}건")
+    return places
+
+
+def collect_tour_places() -> list[dict]:
+    seen_ids: set = set()
+    places: list[dict] = []
+    add_place = _make_add_place(seen_ids, places)
 
     # 1) 카테고리 코드 기반 수집 (지역 x 카테고리)
     for category, content_type_id, cat1, cat2, cat3, genre_label, needs_detail in TOUR_CATEGORY_TARGETS:
@@ -207,19 +244,8 @@ def collect_tour_places() -> list[dict]:
             time.sleep(REQUEST_DELAY)
         print(f"[진행] {category}/{genre_label} 완료, 누적 {len(places)}건")
 
-    # 2) 축제 (기간이 지난 것도 섞여 들어올 수 있지만, 화면에서 과거 날짜는 선택 못 하게
-    #    막아뒀으니 자연스럽게 걸러진다)
-    for area_code in TOUR_AREA_CODES:
-        try:
-            items = fetch_area_festivals(area_code)
-        except requests.RequestException as e:
-            print(f"[경고] 축제/{area_code} 조회 실패: {e}")
-            continue
-        region_group = region_group_from_area(area_code)
-        for item in items:
-            add_place(item, "축제", "축제", False, True, region_group)
-        time.sleep(REQUEST_DELAY)
-    print(f"[진행] 축제 완료, 누적 {len(places)}건")
+    # 2) 축제
+    places.extend(collect_festivals(seen_ids))
 
     # 3) 카테고리 코드가 없어 키워드로 보완하는 것들 (동물원/아쿠아리움/글램핑/워터파크)
     for category, keyword in TOUR_KEYWORD_TARGETS:
@@ -238,6 +264,17 @@ def collect_tour_places() -> list[dict]:
     return places
 
 
+def _save(places: list[dict]) -> None:
+    kst = timezone(timedelta(hours=9))
+    payload = {
+        "updated_at": datetime.now(kst).isoformat(),
+        "count": len(places),
+        "places": places,
+    }
+    with open(TOUR_DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
 def main():
     with open(TOUR_DATA_PATH, "r", encoding="utf-8") as f:
         existing = json.load(f)
@@ -249,17 +286,32 @@ def main():
 
     tour_places = collect_tour_places()
     combined_places = kopis_places + tour_places
-    kst = timezone(timedelta(hours=9))
-    payload = {
-        "updated_at": datetime.now(kst).isoformat(),
-        "count": len(combined_places),
-        "places": combined_places,
-    }
-    with open(TOUR_DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-
+    _save(combined_places)
     print(f"TourAPI {len(tour_places)}건 (기존 대체) -> 총 {len(combined_places)}건 -> {TOUR_DATA_PATH}")
 
 
+def refresh_festivals_only():
+    """축제만 다시 모아서 기존 데이터의 축제(tour_ 접두 + category=='축제')만 교체한다.
+    TourAPI 일일 트래픽 한도 초과로 축제 상세(기간)를 못 가져왔을 때, 이미 성공한
+    나머지 카테고리(박물관/캠핑/공원 등)까지 다시 돌려 요청을 낭비하지 않기 위한 용도.
+    사용: python collect_tour.py --festivals-only
+    """
+    with open(TOUR_DATA_PATH, "r", encoding="utf-8") as f:
+        existing = json.load(f)
+
+    other_places = [
+        p for p in existing["places"]
+        if not (str(p.get("id", "")).startswith("tour_") and p.get("category") == "축제")
+    ]
+    festival_places = collect_festivals()
+    combined_places = other_places + festival_places
+    _save(combined_places)
+    print(f"축제 {len(festival_places)}건 재수집 -> 총 {len(combined_places)}건 -> {TOUR_DATA_PATH}")
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+    if "--festivals-only" in sys.argv:
+        refresh_festivals_only()
+    else:
+        main()
