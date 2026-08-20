@@ -146,6 +146,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     font-size: 14px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
     display: flex; align-items: center; justify-content: center; z-index: 1; padding: 0;
   }}
+  .share-btn {{
+    position: absolute; top: 8px; right: 38px; width: 26px; height: 26px;
+    border: none; border-radius: 50%; background: rgba(255,255,255,0.9);
+    font-size: 13px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center; z-index: 1; padding: 0;
+  }}
   .list-card:hover {{ border-color: #ffcbb0; }}
   .list-card .thumb {{
     width: 68px; height: 68px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #ffe9dd;
@@ -225,6 +231,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .prf-popup .popup-fav {{
     position: absolute; top: 6px; right: 34px; width: 22px; height: 22px;
+    border: none; border-radius: 50%; background: rgba(0,0,0,0.06);
+    font-size: 12px; line-height: 1; cursor: pointer; z-index: 1;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }}
+  .prf-popup .popup-share {{
+    position: absolute; top: 6px; right: 62px; width: 22px; height: 22px;
     border: none; border-radius: 50%; background: rgba(0,0,0,0.06);
     font-size: 12px; line-height: 1; cursor: pointer; z-index: 1;
     display: flex; align-items: center; justify-content: center; padding: 0;
@@ -496,6 +508,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return nowMin < hours.openMin || nowMin > hours.closeMin;
   }}
 
+  // 친구/가족한테 바로 이 장소를 보내줄 수 있게 - 그냥 홈으로 보내는 게 아니라
+  // ?place=id 붙여서, 받은 사람이 열면 바로 그 장소 팝업이 뜨게(아래 초기 로드
+  // 로직 참고) 한다.
+  window.sharePlace = function (id) {{
+    const p = allPlaces.find(x => x.id === id);
+    if (!p) return;
+    const url = `${{location.origin}}${{location.pathname}}?place=${{encodeURIComponent(id)}}`;
+    const shareData = {{ title: p.title, text: `${{p.title}} - 아이랑 가볼까`, url }};
+    if (navigator.share) {{
+      navigator.share(shareData).catch(() => {{}});
+    }} else if (navigator.clipboard) {{
+      navigator.clipboard.writeText(url).then(() => {{
+        alert('링크를 복사했어요. 붙여넣기로 공유해보세요!');
+      }}).catch(() => {{
+        prompt('아래 링크를 복사해서 공유해보세요', url);
+      }});
+    }} else {{
+      prompt('아래 링크를 복사해서 공유해보세요', url);
+    }}
+  }};
+
   function buildPopupHtml(p) {{
     const timeBound = isTimeBound(p);
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
@@ -508,6 +541,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       `<div class="prf-popup">` +
         `<button type="button" class="popup-close" onclick="window.__closeInfoWindow()">×</button>` +
         `<button type="button" class="popup-fav" onclick="toggleFavoriteUI(this, '${{p.id}}')">${{isFavorite(p.id) ? '❤️' : '🤍'}}</button>` +
+        `<button type="button" class="popup-share" onclick="sharePlace('${{p.id}}')">🔗</button>` +
         posterHtml +
         `<span class="genre">${{p.genre}}</span>` + approxHtml + closedHtml +
         `<h3>${{p.title}}</h3>` +
@@ -586,6 +620,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       return (
         `<div class="list-card" data-idx="${{i}}">` +
           `<button type="button" class="fav-btn" onclick="event.stopPropagation(); toggleFavoriteUI(this, '${{p.id}}')">${{isFavorite(p.id) ? '❤️' : '🤍'}}</button>` +
+          `<button type="button" class="share-btn" onclick="event.stopPropagation(); sharePlace('${{p.id}}')">🔗</button>` +
           thumb +
           `<div class="info">` +
             `<span class="genre">${{p.genre}}</span>` +
@@ -1039,8 +1074,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .then(data => {{
       allPlaces = data.places;
       initFilters(allPlaces);
+
+      // 공유 링크(?place=id)로 들어온 경우 - 그냥 홈 화면 대신 공유받은 장소로 바로
+      // 연다. 카테고리 칩도 그 장소 카테고리에 맞춰줘야 팝업 주변 목록/마커가 뜬금없지
+      // 않다 (예: 캠핑장을 공유받았는데 기본값인 공연·전시가 켜져있으면 이상함).
+      const sharedId = new URLSearchParams(location.search).get('place');
+      const sharedPlace = sharedId ? allPlaces.find(p => p.id === sharedId) : null;
+      if (sharedPlace && sharedPlace.category) {{
+        const catChip = document.querySelector(`#catChipRow .chip[data-value="${{CSS.escape(sharedPlace.category)}}"]`);
+        if (catChip) setActiveChip(document.getElementById('catChipRow'), sharedPlace.category);
+      }}
+
       applyFilters();
-      goToCurrentLocation(13); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
+
+      if (sharedPlace) {{
+        openFromList(sharedPlace);
+      }} else {{
+        goToCurrentLocation(13); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
+      }}
     }})
     .catch(() => {{
       document.getElementById('countText').textContent = '데이터를 불러오지 못했습니다';
