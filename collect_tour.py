@@ -309,9 +309,64 @@ def refresh_festivals_only():
     print(f"축제 {len(festival_places)}건 재수집 -> 총 {len(combined_places)}건 -> {TOUR_DATA_PATH}")
 
 
+def backfill_missing_details():
+    """price/schedule/age가 비어있는 기존 TourAPI 항목(주로 박물관/기념관/전시관/미술관-
+    상세조회가 필요한 카테고리)만 골라 detailIntro2를 다시 호출해 채운다.
+    목록(areaBasedList2)은 이미 성공해서 항목 자체는 다 있으니 다시 부르지 않고,
+    상세가 빠진 항목의 콘텐츠ID로만 바로 요청해서 - 트래픽 한도 초과로 상세만
+    실패했던 걸 최소 요청으로 복구한다.
+    사용: python collect_tour.py --backfill-details
+    """
+    content_type_by_category = {
+        category: content_type_id
+        for category, content_type_id, *_rest, needs_detail in TOUR_CATEGORY_TARGETS
+        if needs_detail
+    }
+
+    with open(TOUR_DATA_PATH, "r", encoding="utf-8") as f:
+        existing = json.load(f)
+
+    updated = 0
+    checked = 0
+    for p in existing["places"]:
+        pid = str(p.get("id", ""))
+        if not pid.startswith("tour_"):
+            continue
+        content_type_id = content_type_by_category.get(p.get("category"))
+        if content_type_id is None:
+            continue
+        if p.get("price") or p.get("schedule"):
+            continue  # 이미 채워져 있으면 건너뜀
+        checked += 1
+        content_id = pid[len("tour_"):]
+        try:
+            detail = fetch_detail_intro(content_id, content_type_id)
+        except requests.RequestException as e:
+            print(f"[경고] 상세 재조회 실패({content_id}): {e}")
+            continue
+        time.sleep(REQUEST_DELAY)
+        if not detail:
+            continue
+
+        schedule = detail.get("usetimeculture", "") or detail.get("usetime", "")
+        schedule = re.sub(r"<[^>]+>", " ", schedule).strip()
+        price = detail.get("usefee", "")
+        age = detail.get("expagerange", "")
+        if price or schedule or age:
+            p["price"] = price or p.get("price", "")
+            p["schedule"] = schedule or p.get("schedule", "")
+            p["age"] = age or p.get("age", "")
+            updated += 1
+
+    _save(existing["places"])
+    print(f"상세 보충: {checked}건 시도, {updated}건 업데이트 -> {TOUR_DATA_PATH}")
+
+
 if __name__ == "__main__":
     import sys
     if "--festivals-only" in sys.argv:
         refresh_festivals_only()
+    elif "--backfill-details" in sys.argv:
+        backfill_missing_details()
     else:
         main()
