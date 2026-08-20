@@ -73,6 +73,16 @@
   }
   .fav-filter-btn.active { background: #ff5c8a; border-color: #ff5c8a; color: white; }
 
+  /* ---------- 데스크톱: 넓은 화면에서 칩 줄들이 한 줄에 눌린 채로 옆에 빈 공백만
+     길게 남던 문제 - 가로 스크롤 대신 줄바꿈으로 실제 너비를 채우고, 상단바
+     내용물 자체도 너무 넓게 늘어지지 않게 적당한 최대 너비로 묶는다. */
+  @media (min-width: 769px) {
+    .topbar-body { max-width: 900px; }
+    .chip-row, .date-row, .reco-scroll {
+      flex-wrap: wrap; overflow-x: visible; padding-bottom: 0;
+    }
+  }
+
   /* ---------- 본문: 목록 + 지도 ---------- */
   .main-layout { flex: 1; display: flex; position: relative; overflow: hidden; }
   #map { flex: 1; height: 100%; }
