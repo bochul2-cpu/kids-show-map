@@ -38,6 +38,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .brand h1 {{ font-size: 15px; margin: 0; color: #333; font-weight: 800; }}
   .brand .tagline {{ font-size: 11px; color: #aaa; margin-left: 4px; }}
 
+  .search-box-row {{ margin-bottom: 8px; }}
+  .search-box-row input {{
+    width: 100%; border: 1.5px solid #ffe1d0; border-radius: 12px;
+    padding: 9px 12px; font-size: 13px; background: #fffaf7;
+  }}
+  .search-box-row input:focus {{ outline: none; border-color: #ff8a65; }}
+
   .chip-row {{ display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }}
   .chip-row::-webkit-scrollbar {{ height: 4px; }}
   .chip-row:last-child {{ padding-bottom: 0; }}
@@ -164,6 +171,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar">
   <div class="brand"><span class="logo">🧸</span><h1>아이랑 공연</h1><span class="tagline">우리 애랑 오늘 뭐 볼까?</span></div>
+  <div class="search-box-row">
+    <input type="text" id="searchBox" placeholder="장소명/지역명 검색">
+  </div>
   <div class="chip-row region-row" id="regionChipRow"></div>
   <div class="chip-row cat-row" id="catChipRow"></div>
   <div class="date-row">
@@ -456,6 +466,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return active ? active.dataset.value : '';
   }}
 
+  let searchQuery = '';
+
   function applyFilters() {{
     closePopup(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
     const region = activeValue(document.getElementById('regionChipRow'));
@@ -465,6 +477,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     let filtered = allPlaces;
     if (region) filtered = filtered.filter(p => p.region_group === region);
     if (cat) filtered = filtered.filter(p => p.category === cat);
+    if (searchQuery) {{
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.venue || '').toLowerCase().includes(q) ||
+        (p.address || '').toLowerCase().includes(q)
+      );
+    }}
     if (dateVal) {{
       const [y, m, d] = dateVal.split('-').map(Number);
       const sel = new Date(y, m - 1, d);
@@ -580,6 +600,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     // 기본값: 오늘
     dateInput.value = fmtDate(today);
     document.querySelector('.date-row .chip[data-quick="today"]').classList.add('active');
+
+    // 검색: 지역/카테고리/날짜 필터와 AND로 동작한다 (필터 무시하고 엉뚱한 결과로 튀던
+    // 예전 검색과 달리, 이건 그냥 필터 조건 중 하나로 들어간다 - applyFilters 참고).
+    // 입력마다 바로 필터링하면 수천 건 마커를 매 타이핑마다 다시 그려서 버벅이므로 debounce.
+    const searchBox = document.getElementById('searchBox');
+    let searchDebounceTimer = null;
+    searchBox.addEventListener('input', () => {{
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {{
+        searchQuery = searchBox.value.trim();
+        applyFilters();
+      }}, 250);
+    }});
   }}
 
   fetch('data/places.json')
