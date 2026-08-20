@@ -101,7 +101,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .list-items {{ padding: 8px; }}
 
-  .reco-section {{ padding: 10px 8px 4px; border-bottom: 1px solid #ffe9dd; }}
+  /* 추천은 목록(필터 결과)이랑 섞이면 뭐가 뭔지 헷갈린다는 피드백으로, 목록 패널
+     안에 끼워넣지 않고 지도 위 오른쪽 위에 뜨는 별도 카드로 분리했다. */
+  .reco-section {{
+    position: absolute; top: 10px; left: 392px; right: 12px; z-index: 20;
+    background: white; border-radius: 12px; box-shadow: 0 3px 14px rgba(0,0,0,0.18);
+    padding: 10px 10px 6px;
+  }}
   .reco-title {{ font-size: 12.5px; font-weight: 700; color: #d85c30; margin-bottom: 6px; }}
   .reco-scroll {{ display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }}
   .reco-card {{ flex: 0 0 auto; width: 110px; cursor: pointer; }}
@@ -139,6 +145,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
     .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
+    .reco-section {{ left: 8px; right: 8px; }} /* 모바일은 목록 패널이 바텀시트라 지도가 전체 폭 - 데스크톱처럼 왼쪽에 목록 패널 폭만큼 비켜줄 필요 없음 */
     /* 편의시설/반경 필터는 자주 안 쓰는 것들이라 모바일 상단바가 너무 길어지지 않게
        기본은 접어두고, "상세 필터" 버튼으로 펼칠 수 있게 한다 (데스크톱은 그대로 펼쳐둠). */
     .more-filters-toggle {{ display: block; }}
@@ -268,13 +275,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <div class="main-layout">
   <div class="list-panel" id="listPanel">
     <div class="sheet-handle" id="sheetHandle"><div class="bar"></div><span id="sheetLabel">목록 보기</span></div>
-    <div class="reco-section" id="recoSection" style="display:none;">
-      <div class="reco-title" id="recoTitle"></div>
-      <div class="reco-scroll" id="recoScroll"></div>
-    </div>
     <div class="list-items" id="listItems"></div>
   </div>
   <div id="map"></div>
+  <div class="reco-section" id="recoSection" style="display:none;">
+    <div class="reco-title" id="recoTitle"></div>
+    <div class="reco-scroll" id="recoScroll"></div>
+  </div>
   <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
@@ -424,11 +431,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   // 드래그하는 동안 매 프레임 다시 그리면 무거우니 멈춘 뒤에만(디바운스) 반영하고,
   // 팝업이 열려있을 땐 건드리지 않는다 - 다시 그리면서 마커를 통째로 새로 만들면
   // 팝업이 앵커하고 있던 마커가 사라져서 팝업이 깨진다.
+  // activePopupPosition 체크는 반드시 setTimeout 콜백 "안에서"(실행되는 시점에) 해야 한다 -
+  // openFromList처럼 지도를 먼저 옮기고(bounds_changed 발생, 이 시점엔 팝업이 아직 안 열려
+  // 있어 통과됨) 그다음 팝업을 여는 흐름에서는, 이벤트가 "발생한" 시점(여기)에 체크하면
+  // 항상 통과해버려서 400ms 뒤 콜백이 방금 연 팝업을 그대로 닫아버리는 버그가 있었다.
   let boundsChangeTimer = null;
   naver.maps.Event.addListener(map, 'bounds_changed', function () {{
-    if (activePopupPosition) return;
     clearTimeout(boundsChangeTimer);
-    boundsChangeTimer = setTimeout(applyFilters, 400);
+    boundsChangeTimer = setTimeout(() => {{
+      if (activePopupPosition) return;
+      applyFilters();
+    }}, 400);
   }});
 
   // 공연/축제는 "정해진 기간에 하는 것"이라 기간·정가(예매가와 다를 수 있음)·예매 라벨이 맞고,
