@@ -174,6 +174,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .list-items {{ overflow-y: auto; }}
   }}
 
+  /* ---------- 내 위치 표시 ---------- */
+  .my-location-dot {{
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #4285f4; border: 3px solid white;
+    box-shadow: 0 0 0 3px rgba(66,133,244,0.35), 0 1px 4px rgba(0,0,0,0.3);
+  }}
+
   /* ---------- 커스텀 핀 마커 ---------- */
   .prf-pin {{ display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); }}
   .prf-pin .pin-badge {{
@@ -960,6 +967,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
+  // 지도를 GPS 위치로 옮겨도 "정확히 어디가 내 위치인지" 표시가 없으면 화면 가운데를
+  // 눈대중으로 짐작해야 해서 위치가 애매하게 느껴진다는 피드백으로, 파란 점 마커를
+  // 실제 좌표에 찍어서 더 이상 짐작할 필요가 없게 한다.
+  let myLocationMarker = null;
+  function showMyLocationMarker(lat, lon) {{
+    const pos = new naver.maps.LatLng(lat, lon);
+    if (myLocationMarker) {{
+      myLocationMarker.setPosition(pos);
+      return;
+    }}
+    myLocationMarker = new naver.maps.Marker({{
+      position: pos,
+      map: map,
+      icon: {{
+        content: '<div class="my-location-dot"></div>',
+        size: new naver.maps.Size(16, 16),
+        anchor: new naver.maps.Point(8, 8),
+      }},
+      zIndex: 150,
+    }});
+  }}
+
   // 페이지 로드 시 자동으로 한 번 호출하는 것과, 아래 "현재 위치로 이동" 버튼이
   // 같은 로직을 쓴다.
   function goToCurrentLocation(zoom, onDenied) {{
@@ -972,6 +1001,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const lat = pos.coords.latitude, lon = pos.coords.longitude;
         userPosition = {{ lat, lon }};
         document.getElementById('radiusRow').style.display = 'flex';
+        showMyLocationMarker(lat, lon);
         map.setCenter(new naver.maps.LatLng(lat, lon));
         map.setZoom(zoom);
       }},
