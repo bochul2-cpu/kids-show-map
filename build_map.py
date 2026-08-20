@@ -57,7 +57,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     flex: 0 0 auto; border: 1.5px solid #eee; background: white; color: #666;
     border-radius: 16px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
   }}
-  .region-row .chip.active {{ background: #17a893; border-color: #17a893; color: white; }}
   .cat-row .chip.active {{ background: #ff7a50; border-color: #ff7a50; color: white; }}
   .amenity-row .chip.active {{ background: #4a90d9; border-color: #4a90d9; color: white; }}
   .radius-row .chip.active {{ background: #7b61ff; border-color: #7b61ff; color: white; }}
@@ -138,10 +137,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .extra-filters.expanded {{ display: block; }}
 
     /* 상단 필터 메뉴 전체를 접었다 폈다 할 수 있게 한다 (모바일 전용) - 목록을
-       "목록 보기"로 펼치면 자동으로 접혀서 지도/목록에 화면을 더 내준다. */
+       "목록 보기"로 펼치면 자동으로 접혀서 지도/목록에 화면을 더 내준다.
+       (CSS transition 대신 JS로 display를 직접 켜고 끈다 - max-height 트랜지션은
+       reflow 타이밍에 따라 미덥지 않게 굴 수 있어서, 애니메이션보다 확실히 동작하는 걸 택함) */
     .topbar-toggle {{ display: block; }}
-    .topbar-body {{ max-height: 600px; overflow: hidden; transition: max-height .25s ease; }}
-    .topbar.collapsed .topbar-body {{ max-height: 0; }}
 
     .list-panel {{
       position: absolute; left: 0; right: 0; bottom: 0; width: auto;
@@ -233,7 +232,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="search-box-row">
       <input type="text" id="searchBox" placeholder="장소명/지역명 검색">
     </div>
-    <div class="chip-row region-row" id="regionChipRow"></div>
     <div class="chip-row cat-row" id="catChipRow"></div>
     <button type="button" class="more-filters-toggle" id="moreFiltersToggle">🔧 상세 필터 더보기 ▾</button>
     <div class="extra-filters" id="extraFilters">
@@ -342,24 +340,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }};
 
-  const REGION_CENTERS = {{
-    '수도권': [37.5665, 126.9780],
-    '충청권': [36.3504, 127.3845],
-    '강원권': [37.8813, 127.7298],
-    '호남권': [35.1595, 126.8526],
-    '영남권': [35.5, 128.8],
-    '제주권': [33.4996, 126.5312],
-  }};
-
-  function pickRegionGroup(lat, lon) {{
-    let best = null, bestDist = Infinity;
-    for (const [name, c] of Object.entries(REGION_CENTERS)) {{
-      const d = (lat - c[0]) ** 2 + (lon - c[1]) ** 2;
-      if (d < bestDist) {{ bestDist = d; best = name; }}
-    }}
-    return best;
-  }}
-
   const GENRE_ICONS = {{
     '뮤지컬': '🎵', '연극': '🎭', '서양음악(클래식)': '🎻', '한국음악(국악)': '🥁',
     '대중음악': '🎤', '무용(서양/한국무용)': '💃', '대중무용': '🕺', '서커스/마술': '🎪',
@@ -428,6 +408,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   naver.maps.Event.addListener(map, 'zoom_changed', function (zoom) {{
     // 축소해서 마커가 클러스터로 합쳐지는 시점(클러스터 maxZoom=15 근처)에는 열려있던 팝업도 같이 닫는다
     if (zoom < 14) closePopup();
+  }});
+
+  // 지역 칩이 없어진 뒤로는 지도를 옮기는 것 자체가 "여기 뭐 있나 보여줘"에 해당한다.
+  // 드래그하는 동안 매 프레임 다시 그리면 무거우니 멈춘 뒤에만(디바운스) 반영하고,
+  // 팝업이 열려있을 땐 건드리지 않는다 - 다시 그리면서 마커를 통째로 새로 만들면
+  // 팝업이 앵커하고 있던 마커가 사라져서 팝업이 깨진다.
+  let boundsChangeTimer = null;
+  naver.maps.Event.addListener(map, 'bounds_changed', function () {{
+    if (activePopupPosition) return;
+    clearTimeout(boundsChangeTimer);
+    boundsChangeTimer = setTimeout(applyFilters, 400);
   }});
 
   // 공연/축제는 "정해진 기간에 하는 것"이라 기간·정가(예매가와 다를 수 있음)·예매 라벨이 맞고,
@@ -608,19 +599,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
+  // 현재 지도 화면(뷰포트) 안에 있는 것만 남긴다 - 지역 칩을 없앤 뒤로는 이게 유일한
+  // 지리적 범위 기준이다.
+  function placesInViewport(list) {{
+    const bounds = map.getBounds();
+    if (!bounds) return list;
+    return list.filter(p => bounds.hasLatLng(new naver.maps.LatLng(p.lat, p.lon)));
+  }}
+
   // 이번 주말(다가오는 토~일) 범위와 겹치는 시간제한 장소(공연/축제) + 지금 계절에
   // 맞는 상시 카테고리(여름 물놀이/겨울 스키/그 외 나들이) 를 섞어서 추천 카드로 보여준다.
   // 연령대별 추천은 age 필드가 "전체 관람가"/"8세 이상" 같은 자유 텍스트라 구조화가 안 돼
   // 있어 이번엔 계절+주말 기준으로만 구성했다.
-  function computeRecommendations(region) {{
-    const inRegion = region ? allPlaces.filter(p => p.region_group === region) : allPlaces;
+  function computeRecommendations() {{
+    const inView = placesInViewport(allPlaces);
 
     const today = new Date();
     const addDays = (6 - today.getDay() + 7) % 7;
     const sat = new Date(today); sat.setDate(sat.getDate() + addDays); sat.setHours(0, 0, 0, 0);
     const sun = new Date(sat); sun.setDate(sun.getDate() + 1);
 
-    const weekendPicks = inRegion.filter(p => {{
+    const weekendPicks = inView.filter(p => {{
       if (!isTimeBound(p)) return false;
       const start = toDateObj(p.start_date), end = toDateObj(p.end_date);
       return start && end && sat <= end && sun >= start;
@@ -630,7 +629,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     let seasonalCategory = '나들이·산책';
     if (SEASONAL_CATEGORIES['물놀이'].includes(month)) seasonalCategory = '물놀이';
     else if (SEASONAL_CATEGORIES['스키·눈썰매'].includes(month)) seasonalCategory = '스키·눈썰매';
-    const seasonalPicks = inRegion.filter(p => p.category === seasonalCategory);
+    const seasonalPicks = inView.filter(p => p.category === seasonalCategory);
 
     const seen = new Set();
     const combined = [];
@@ -641,8 +640,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
 
   function renderRecommendations() {{
-    const region = activeValue(document.getElementById('regionChipRow'));
-    const {{ combined, seasonalCategory }} = computeRecommendations(region);
+    const {{ combined, seasonalCategory }} = computeRecommendations();
     const section = document.getElementById('recoSection');
     if (combined.length === 0) {{ section.style.display = 'none'; return; }}
     section.style.display = 'block';
@@ -687,23 +685,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }}
 
+  const MAX_RENDER = 500; // 지도를 너무 축소해서 결과가 이 이상 쏟아지면 확대를 유도한다
+
+  function renderTooManyMessage(count) {{
+    document.getElementById('listItems').innerHTML =
+      `<div class="empty-msg">이 범위에 ${{count}}건이나 있어요 🙈<br>지도를 확대하면 하나씩 보여드릴게요</div>`;
+  }}
+
   function applyFilters() {{
     closePopup(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
-    const region = activeValue(document.getElementById('regionChipRow'));
     const cat = activeValue(document.getElementById('catChipRow'));
     const dateVal = document.getElementById('dateFilter').value;
 
     let filtered = allPlaces;
-    if (region) filtered = filtered.filter(p => p.region_group === region);
     if (cat) filtered = filtered.filter(p => p.category === cat);
-    if (searchQuery) {{
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(p =>
-        (p.title || '').toLowerCase().includes(q) ||
-        (p.venue || '').toLowerCase().includes(q) ||
-        (p.address || '').toLowerCase().includes(q)
-      );
-    }}
     if (showFavoritesOnly) {{
       const favIds = getFavoriteIds();
       filtered = filtered.filter(p => favIds.has(p.id));
@@ -728,12 +723,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }});
     }}
 
-    renderMarkers(filtered);
-    renderList(filtered);
+    let tooMany = false;
+    if (searchQuery) {{
+      // 검색 중일 땐 지금 지도 화면 밖에 있는 것도 찾아야 의미가 있어서 뷰포트 제한을
+      // 건너뛴다 - 대신 결과가 있으면 다 보이도록 지도를 맞춰준다.
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.venue || '').toLowerCase().includes(q) ||
+        (p.address || '').toLowerCase().includes(q)
+      );
+      if (filtered.length > 0 && filtered.length <= 200) {{
+        const bounds = new naver.maps.LatLngBounds();
+        filtered.forEach(p => bounds.extend(new naver.maps.LatLng(p.lat, p.lon)));
+        map.fitBounds(bounds);
+      }}
+    }} else {{
+      // 지역 칩이 없어진 뒤로는 "지금 지도 화면에 보이는 범위"가 유일한 지리적 기준이다.
+      filtered = placesInViewport(filtered);
+      if (filtered.length > MAX_RENDER) tooMany = true;
+    }}
+
+    if (tooMany) {{
+      renderMarkers([]);
+      renderTooManyMessage(filtered.length);
+    }} else {{
+      renderMarkers(filtered);
+      renderList(filtered);
+    }}
     renderRecommendations();
     const label = document.getElementById('sheetLabel');
     if (label) label.textContent = `목록 보기 (${{filtered.length}}건)`;
-    document.getElementById('countText').textContent = `장소 ${{filtered.length}}/${{allPlaces.length}}건`;
+    document.getElementById('countText').textContent = tooMany
+      ? `${{filtered.length}}건 - 지도를 확대해보세요`
+      : `장소 ${{filtered.length}}/${{allPlaces.length}}건`;
   }}
 
   function setActiveChip(rowEl, value) {{
@@ -753,24 +776,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
-  // 지역 칩을 고르면 필터링뿐 아니라 그 권역 중심으로 지도도 이동시킨다 (카테고리 칩은 필터링만)
-  function panToRegion(value) {{
-    if (value && REGION_CENTERS[value]) {{
-      const c = REGION_CENTERS[value];
-      map.setZoom(10);
-      map.panTo(new naver.maps.LatLng(c[0], c[1]));
-    }} else {{
-      map.setZoom(12);
-      map.panTo(new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]));
-    }}
-  }}
-
   // ---------- 모바일: 하단 목록 시트 + 상단 필터 메뉴 ----------
   // 목록을 펼치면 화면을 더 내주려고 상단 필터 메뉴를 같이 접고, 목록을 접으면 다시
   // 펼쳐서 되돌린다. 상단 메뉴 자체도 (목록과 별개로) 손으로 접었다 펼 수 있다.
   function setTopbarCollapsed(collapsed) {{
     if (window.innerWidth > 768) return; // 데스크톱은 항상 펼쳐진 상태 유지
-    document.getElementById('topbar').classList.toggle('collapsed', collapsed);
+    document.getElementById('topbarBody').style.display = collapsed ? 'none' : '';
     document.getElementById('topbarToggle').textContent = collapsed ? '▼' : '▲';
   }}
 
@@ -790,7 +801,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }});
 
   document.getElementById('topbarToggle').addEventListener('click', () => {{
-    const nowCollapsed = !document.getElementById('topbar').classList.contains('collapsed');
+    const nowCollapsed = document.getElementById('topbarBody').style.display !== 'none';
     setTopbarCollapsed(nowCollapsed);
   }});
 
@@ -808,18 +819,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     dateInput.addEventListener('keydown', (e) => e.preventDefault());
     dateInput.addEventListener('paste', (e) => e.preventDefault());
 
-    // 지역/카테고리 둘 다 "전체"를 없앴다 - 전국/모든 카테고리를 한 번에 뿌리면
-    // 마커·클러스터 계산량이 커서 느리기도 하고, "오늘 뭐 볼까" 용도로는 범위가
-    // 좁혀져 있는 게 더 쓸모 있다. 지역은 GPS로, 카테고리는 공연·전시로 시작한다.
-    initChipRow(document.getElementById('regionChipRow'), [
-      {{ value: '수도권', label: '수도권' }},
-      {{ value: '충청권', label: '충청권' }},
-      {{ value: '강원권', label: '강원권' }},
-      {{ value: '호남권', label: '호남권' }},
-      {{ value: '영남권', label: '영남권' }},
-      {{ value: '제주권', label: '제주권' }},
-    ], panToRegion);
-
+    // 카테고리는 "전체"를 없앴다 - 모든 카테고리를 한 번에 뿌리면 마커·클러스터
+    // 계산량이 커서 느리기도 하고, "오늘 뭐 볼까" 용도로는 좁혀져 있는 게 더 쓸모
+    // 있다. 지역 칩은 없앴다 - 이제 지도 화면(뷰포트)에 보이는 범위가 곧 필터다.
+    // 카테고리는 공연·전시로 시작한다.
     const CATEGORY_ORDER = [
       '공연·전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이',
       '물놀이', '캠핑·글램핑', '놀이공원', '스키·눈썰매',
@@ -932,8 +935,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('radiusRow').style.display = 'flex';
             map.setCenter(new naver.maps.LatLng(lat, lon));
             map.setZoom(13);
-            const group = pickRegionGroup(lat, lon);
-            setActiveChip(document.getElementById('regionChipRow'), group);
             applyFilters();
           }},
           () => {{ /* 거부/실패 시 기본값(부천) 유지 */ }},
