@@ -12,11 +12,9 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
-from config import (
-    KOPIS_SERVICE_KEY,
+from settings import (
     KOPIS_BASE_URL,
     NAVER_API_URL,
-    NAVER_HEADERS,
     SHOW_KEYWORDS,
     KOPIS_GENRES,
     KOPIS_REGION_CODES,
@@ -24,6 +22,7 @@ from config import (
     ALLOWED_ADDRESS_PREFIXES,
     DATA_PATH,
 )
+from config import KOPIS_SERVICE_KEY, NAVER_HEADERS
 
 REQUEST_DELAY = 0.1
 RETRY_ATTEMPTS = 3

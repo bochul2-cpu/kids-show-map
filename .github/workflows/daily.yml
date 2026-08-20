@@ -1,0 +1,43 @@
+name: Daily data refresh
+
+on:
+  schedule:
+    - cron: "0 21 * * *"  # 21:00 UTC = 06:00 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Write config.py from secrets
+        run: |
+          cat > config.py << PYEOF
+          KOPIS_SERVICE_KEY = "${{ secrets.KOPIS_SERVICE_KEY }}"
+          NAVER_HEADERS = {
+              "X-NCP-APIGW-API-KEY-ID": "${{ secrets.NAVER_API_KEY_ID }}",
+              "X-NCP-APIGW-API-KEY": "${{ secrets.NAVER_API_KEY }}",
+          }
+          NAVER_MAP_CLIENT_ID = "${{ secrets.NAVER_MAP_CLIENT_ID }}"
+          PYEOF
+
+      - run: python collect.py
+      - run: python build_map.py
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/places.json index.html
+          git diff --staged --quiet && echo "no changes" || git commit -m "Daily data refresh"
+          git push
