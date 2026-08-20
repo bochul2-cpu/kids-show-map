@@ -60,7 +60,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     display: none; width: 100%; text-align: left; background: none; border: none;
     color: #999; font-size: 11.5px; padding: 2px 0 6px; cursor: pointer; font-family: inherit;
   }}
-  .date-row {{ display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }}
+  .date-row {{
+    display: flex; align-items: center; gap: 6px; margin-top: 6px;
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }}
+  .date-row .chip, .date-row input[type=date] {{ flex-shrink: 0; }}
   .date-row .chip.active {{ background: #ffb100; border-color: #ffb100; color: white; }}
   .date-row input[type=date] {{
     border: 1.5px solid #eee; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
