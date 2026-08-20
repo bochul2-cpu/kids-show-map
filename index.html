@@ -256,11 +256,19 @@
     );
   }
 
-  // 팝업이 위쪽 필터바에 가리지 않도록, 클릭한 위치가 화면 중앙보다 아래쪽에 오게 이동시킨다
+  // 팝업이 위쪽 필터바에 가리지 않도록, 필터바 실제 높이 + 팝업 예상 높이만큼
+  // 클릭한 위치를 화면 아래쪽으로 이동시킨다
   function panForPopup(position) {
+    const filterBar = document.querySelector('.filter-bar');
+    const filterBarBottom = filterBar ? filterBar.getBoundingClientRect().bottom : 0;
+    const popupH = window.innerWidth <= 480 ? 260 : 430; // 모바일은 CSS로 팝업이 작아짐
+    const minMarkerY = filterBarBottom + popupH + 20;
+    const centerY = window.innerHeight / 2;
+    const shiftDown = Math.max(0, Math.min(minMarkerY - centerY, window.innerHeight - centerY - 60));
+
     const proj = map.getProjection();
     const pt = proj.fromCoordToOffset(position);
-    const shifted = new naver.maps.Point(pt.x, pt.y - 140);
+    const shifted = new naver.maps.Point(pt.x, pt.y - shiftDown);
     map.panTo(proj.fromOffsetToCoord(shifted));
   }
 
