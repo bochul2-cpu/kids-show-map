@@ -1,10 +1,10 @@
 """정적 index.html 셸을 생성한다. 공연 데이터는 빌드 시점에 박아넣지 않고,
 런타임에 data/places.json 을 fetch 해서 그린다. 아동 공연 전용 서비스.
 
-화면 구성: 상단 필터바(검색/지역/카테고리/날짜) 아래로 좌측 목록 + 우측 지도
-(데스크톱), 또는 지도 위로 올라오는 바텀시트 목록(모바일). 첫 화면은 사용자
-GPS 위치 기준으로 잡고(거부 시 부천 기본값), 그 위치가 속한 권역을 필터에
-자동 선택한다."""
+컨셉: "부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹" - 부천시청
+기준 반경 20km 이내, 오늘부터 이번 주말까지의 데이터만 고정으로 보여준다.
+지역/반경/날짜를 사용자가 직접 설정하는 UI는 없다 - 그냥 켜면 바로 결과가
+뜨고 훑어보고 나가는 것이 목적이라, 카테고리 선택 말고는 설정할 게 없다."""
 from settings import MAP_OUTPUT_PATH, GA_MEASUREMENT_ID
 from config import NAVER_MAP_CLIENT_ID
 
@@ -14,7 +14,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>아이랑 가볼까</title>
-<meta name="description" content="공연부터 캠핑까지, 아이랑 갈 곳 찾기">
+<meta name="description" content="부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹 - 부천 근교 20km, 오늘부터 이번 주말까지">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff7a50">
 <link rel="icon" href="icons/icon-192.png">
@@ -28,7 +28,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
      결정됨) 앱 전체 기준의 고정 카드만 가능하다. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="아이랑 가볼까">
-<meta property="og:description" content="공연부터 캠핑까지, 아이랑 갈 곳 찾기">
+<meta property="og:description" content="부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹 - 부천 근교 20km, 오늘부터 이번 주말까지">
 <meta property="og:image" content="https://bochul2-cpu.github.io/kids-show-map/icons/og-image.png">
 <meta property="og:url" content="https://bochul2-cpu.github.io/kids-show-map/">
 <meta name="twitter:card" content="summary_large_image">
@@ -61,13 +61,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     font-size: 13px; padding: 4px 8px; cursor: pointer; margin-bottom: 8px;
   }}
 
-  .search-box-row {{ margin-bottom: 8px; }}
-  .search-box-row input {{
-    width: 100%; border: 1.5px solid #ffe1d0; border-radius: 12px;
-    padding: 9px 12px; font-size: 13px; background: #fffaf7;
-  }}
-  .search-box-row input:focus {{ outline: none; border-color: #ff8a65; }}
-
   .chip-row {{ display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }}
   .chip-row::-webkit-scrollbar {{ height: 4px; }}
   .chip-row:last-child {{ padding-bottom: 0; }}
@@ -76,47 +69,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border-radius: 16px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
   }}
   .cat-row .chip.active {{ background: #ff7a50; border-color: #ff7a50; color: white; }}
-  .radius-row .chip.active {{ background: #7b61ff; border-color: #7b61ff; color: white; }}
-  .date-row {{
-    display: flex; align-items: center; gap: 6px; margin-top: 6px;
-    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  }}
-  .date-row .chip, .date-row input[type=date] {{ flex-shrink: 0; }}
-  .date-row .chip.active {{ background: #ffb100; border-color: #ffb100; color: white; }}
-  .date-row input[type=date] {{
-    border: 1.5px solid #eee; border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
-    accent-color: #ff7a50; color: #555; cursor: pointer; background: #fafafa;
-  }}
-  .date-row input[type=date]::-webkit-calendar-picker-indicator {{ cursor: pointer; }}
-  .count-row {{ display: flex; align-items: center; justify-content: space-between; margin-top: 6px; gap: 8px; }}
+  .count-row {{ margin-top: 6px; }}
   .count-text {{ font-size: 11.5px; color: #999; }}
-  .fav-filter-btn {{
-    flex-shrink: 0; border: 1.5px solid #ffcbd8; background: white; color: #e0507a;
-    border-radius: 14px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; white-space: nowrap;
-  }}
-  .fav-filter-btn.active {{ background: #ff5c8a; border-color: #ff5c8a; color: white; }}
 
   /* ---------- 데스크톱: 넓은 화면에서 칩 줄들이 한 줄에 눌린 채로 옆에 빈 공백만
      길게 남던 문제 - 가로 스크롤 대신 줄바꿈으로 실제 너비를 채우고, 상단바
      내용물 자체도 너무 넓게 늘어지지 않게 적당한 최대 너비로 묶는다. */
   @media (min-width: 769px) {{
     .topbar-body {{ max-width: 900px; }}
-    .chip-row, .date-row {{
-      flex-wrap: wrap; overflow-x: visible; padding-bottom: 0;
-    }}
+    .chip-row {{ flex-wrap: wrap; overflow-x: visible; padding-bottom: 0; }}
   }}
 
   /* ---------- 본문: 목록 + 지도 ---------- */
   .main-layout {{ flex: 1; display: flex; position: relative; overflow: hidden; }}
   #map {{ flex: 1; height: 100%; }}
-
-  .locate-btn {{
-    position: absolute; right: 12px; bottom: 56px; z-index: 25;
-    width: 42px; height: 42px; border-radius: 50%; border: none;
-    background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  }}
-  .locate-btn:active {{ background: #fff1ea; }}
 
   .list-panel {{
     width: 380px; flex-shrink: 0; background: #fff8f3; overflow-y: auto;
@@ -130,14 +96,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     margin-bottom: 8px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     border: 1px solid transparent; transition: border-color .15s;
   }}
-  .fav-btn {{
-    position: absolute; top: 8px; right: 8px; width: 26px; height: 26px;
-    border: none; border-radius: 50%; background: rgba(255,255,255,0.9);
-    font-size: 14px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
-    display: flex; align-items: center; justify-content: center; z-index: 1; padding: 0;
-  }}
   .share-btn {{
-    position: absolute; top: 8px; right: 38px; width: 26px; height: 26px;
+    position: absolute; top: 8px; right: 8px; width: 26px; height: 26px;
     border: none; border-radius: 50%; background: rgba(255,255,255,0.9);
     font-size: 13px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
     display: flex; align-items: center; justify-content: center; z-index: 1; padding: 0;
@@ -159,7 +119,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   /* ---------- 모바일: 지도 위로 올라오는 바텀시트 ---------- */
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
-    .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
 
     /* 상단 필터 메뉴 전체를 접었다 폈다 할 수 있게 한다 (모바일 전용) - 목록을
        "목록 보기"로 펼치면 자동으로 접혀서 지도/목록에 화면을 더 내준다.
@@ -181,13 +140,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }}
     .sheet-handle .bar {{ width: 36px; height: 4px; background: #ffcbb0; border-radius: 2px; margin: 0 auto 6px; }}
     .list-items {{ overflow-y: auto; }}
-  }}
-
-  /* ---------- 내 위치 표시 ---------- */
-  .my-location-dot {{
-    width: 16px; height: 16px; border-radius: 50%;
-    background: #4285f4; border: 3px solid white;
-    box-shadow: 0 0 0 3px rgba(66,133,244,0.35), 0 1px 4px rgba(0,0,0,0.3);
   }}
 
   /* ---------- 커스텀 핀 마커 ---------- */
@@ -214,14 +166,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border: none; border-radius: 50%; background: rgba(0,0,0,0.06); color: #555;
     font-size: 14px; line-height: 1; cursor: pointer; z-index: 1;
   }}
-  .prf-popup .popup-fav {{
-    position: absolute; top: 6px; right: 34px; width: 22px; height: 22px;
-    border: none; border-radius: 50%; background: rgba(0,0,0,0.06);
-    font-size: 12px; line-height: 1; cursor: pointer; z-index: 1;
-    display: flex; align-items: center; justify-content: center; padding: 0;
-  }}
   .prf-popup .popup-share {{
-    position: absolute; top: 6px; right: 62px; width: 22px; height: 22px;
+    position: absolute; top: 6px; right: 34px; width: 22px; height: 22px;
     border: none; border-radius: 50%; background: rgba(0,0,0,0.06);
     font-size: 12px; line-height: 1; cursor: pointer; z-index: 1;
     display: flex; align-items: center; justify-content: center; padding: 0;
@@ -263,30 +209,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar" id="topbar">
   <div class="topbar-header">
-    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">공연부터 캠핑까지, 아이랑 갈 곳 찾기</span></div>
+    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹</span></div>
     <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
   </div>
   <div class="topbar-body" id="topbarBody">
-    <div class="search-box-row">
-      <input type="text" id="searchBox" placeholder="장소명/지역명 검색">
-    </div>
     <div class="chip-row cat-row" id="catChipRow"></div>
-    <div class="chip-row radius-row" id="radiusRow" style="display:none;">
-      <button type="button" class="chip active" data-radius="">반경 전체</button>
-      <button type="button" class="chip" data-radius="5">5km</button>
-      <button type="button" class="chip" data-radius="10">10km</button>
-      <button type="button" class="chip" data-radius="20">20km</button>
-    </div>
-    <div class="date-row">
-      <button type="button" class="chip" data-quick="today">오늘</button>
-      <button type="button" class="chip" data-quick="tomorrow">내일</button>
-      <button type="button" class="chip" data-quick="weekend">이번 주말</button>
-      <button type="button" class="chip" data-quick="all">전체보기</button>
-      <input type="date" id="dateFilter">
-    </div>
     <div class="count-row">
       <span class="count-text" id="countText">불러오는 중...</span>
-      <button type="button" class="fav-filter-btn" id="favFilterBtn">🤍 찜한 곳만</button>
     </div>
   </div>
 </div>
@@ -296,7 +225,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="list-items" id="listItems"></div>
   </div>
   <div id="map"></div>
-  <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
@@ -312,54 +240,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }}, 1200);
   }};
 
-  // ---------- 익명 device id 기반 찜(즐겨찾기) ----------
-  // 지금은 로그인이 없어서 device 단위로 저장한다. 나중에 로그인 붙으면 이 getDeviceId()
-  // 자리만 실제 userId로 바꿔치기하면 되도록, deviceId 발급/조회를 여기 한 곳에 몰아뒀고
-  // localStorage 키 이름에도 deviceId를 그대로 넣어서 나중에 마이그레이션하기 쉽게 했다.
-  function getDeviceId() {{
-    const KEY = 'kids_map_device_id';
-    let id = localStorage.getItem(KEY);
-    if (!id) {{
-      id = (window.crypto && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-      localStorage.setItem(KEY, id);
-    }}
-    return id;
-  }}
+  const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 - 앱의 고정 기준점
+  const FIXED_RADIUS_KM = 20; // 데이터 표출 범위: 부천시청 반경 20km 고정
 
-  function favoritesStorageKey() {{ return `kids_map_favorites_${{getDeviceId()}}`; }}
+  // 지도를 아무리 축소/이동해도 반경 20km 언저리 밖으로는 못 나가게 막는다 - 위도 1도
+  // ≈ 111km, 경도 1도는 위도 37.5도 기준 ≈ 88km. 20km보다 살짝 넉넉하게(22km) 잡아서
+  // 원이 화면 가장자리에 딱 붙지 않게 여유를 둔다.
+  const MAX_BOUNDS = new naver.maps.LatLngBounds(
+    new naver.maps.LatLng(37.3052, 126.5162),
+    new naver.maps.LatLng(37.7016, 127.0158)
+  );
 
-  function getFavoriteIds() {{
-    try {{
-      return new Set(JSON.parse(localStorage.getItem(favoritesStorageKey()) || '[]'));
-    }} catch (e) {{
-      return new Set();
-    }}
-  }}
-
-  function isFavorite(id) {{ return getFavoriteIds().has(id); }}
-
-  function toggleFavorite(id) {{
-    const ids = getFavoriteIds();
-    if (ids.has(id)) ids.delete(id); else ids.add(id);
-    localStorage.setItem(favoritesStorageKey(), JSON.stringify([...ids]));
-    return ids.has(id);
-  }}
-
-  // 카드/팝업의 하트 버튼에서 호출 - 아이콘만 즉시 바꾸고, "찜한 곳만 보기" 상태에서
-  // 해제한 경우엔 목록에서 바로 빠지도록 필터를 다시 돌린다.
-  window.toggleFavoriteUI = function (btn, id) {{
-    const nowFav = toggleFavorite(id);
-    if (btn) btn.textContent = nowFav ? '❤️' : '🤍';
-    if (showFavoritesOnly && !nowFav) applyFilters();
-  }};
-
-  const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 (GPS 거부/실패 시 기본값)
   const map = new naver.maps.Map('map', {{
     zoom: 12,
-    minZoom: 6,
+    minZoom: 10,
     center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
+    extent: MAX_BOUNDS,
   }});
 
   // 클러스터 클릭 시 기본은 줌을 1단계만 올려서 여러 번 눌러야 흩어짐 - 한 번에 크게 확대되도록 오버라이드
@@ -377,10 +273,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     '복합': '✨',
   }};
 
-  // 대분류(8개) 아이콘 - 마커/칩에서 우선적으로 쓴다
+  // 대분류 아이콘 - 마커/칩에서 우선적으로 쓴다
   const CATEGORY_ICONS = {{
-    '공연·전시': '🎭', '축제': '🎪', '나들이·산책': '🌳', '동물원·수족관': '🐾',
-    '체험·놀이': '🙌', '물놀이': '💦', '놀이공원': '🎢', '쇼핑몰': '🛍️',
+    '공연': '🎭', '전시': '🖼️', '축제': '🎪', '나들이·산책': '🌳', '동물원·수족관': '🐾',
+    '체험·놀이': '🙌', '물놀이': '💦', '쇼핑몰': '🛍️',
   }};
 
   function iconFor(p) {{
@@ -439,25 +335,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (zoom < 14) closePopup();
   }});
 
-  // 지역 칩이 없어진 뒤로는 지도를 옮기는 것 자체가 "여기 뭐 있나 보여줘"에 해당한다.
-  // 드래그하는 동안 매 프레임 다시 그리면 무거우니 멈춘 뒤에만(디바운스) 반영하고,
-  // 팝업이 열려있을 땐 건드리지 않는다 - 다시 그리면서 마커를 통째로 새로 만들면
-  // 팝업이 앵커하고 있던 마커가 사라져서 팝업이 깨진다.
-  // activePopupPosition 체크는 반드시 setTimeout 콜백 "안에서"(실행되는 시점에) 해야 한다 -
-  // openFromList처럼 지도를 먼저 옮기고(bounds_changed 발생, 이 시점엔 팝업이 아직 안 열려
-  // 있어 통과됨) 그다음 팝업을 여는 흐름에서는, 이벤트가 "발생한" 시점(여기)에 체크하면
-  // 항상 통과해버려서 400ms 뒤 콜백이 방금 연 팝업을 그대로 닫아버리는 버그가 있었다.
-  let boundsChangeTimer = null;
-  naver.maps.Event.addListener(map, 'bounds_changed', function () {{
-    clearTimeout(boundsChangeTimer);
-    boundsChangeTimer = setTimeout(() => {{
-      if (activePopupPosition) return;
-      applyFilters();
-    }}, 400);
-  }});
-
   // 공연/축제는 "정해진 기간에 하는 것"이라 기간·정가(예매가와 다를 수 있음)·예매 라벨이 맞고,
-  // 상설 장소(공원/캠핑장/동물원 등)는 항상 열려있어서 기간 대신 운영시간/입장료/상세보기가 맞는다
+  // 상설 장소(공원/전시관/동물원 등)는 항상 열려있어서 기간 대신 운영시간/입장료/상세보기가 맞는다
   function isTimeBound(p) {{ return p.type === 'performance' || p.category === '축제'; }}
 
   // "09:00~18:00"처럼 시:분~시:분 형식이 명확하게 하나만 보일 때만 지금 운영시간이
@@ -515,7 +394,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return (
       `<div class="prf-popup">` +
         `<button type="button" class="popup-close" onclick="window.__closeInfoWindow()">×</button>` +
-        `<button type="button" class="popup-fav" onclick="toggleFavoriteUI(this, '${{p.id}}')">${{isFavorite(p.id) ? '❤️' : '🤍'}}</button>` +
         `<button type="button" class="popup-share" onclick="sharePlace('${{p.id}}')">🔗</button>` +
         posterHtml +
         `<span class="genre">${{p.genre}}</span>` + approxHtml + closedHtml +
@@ -594,7 +472,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         : `<div class="thumb no-img">${{iconFor(p)}}</div>`;
       return (
         `<div class="list-card" data-idx="${{i}}">` +
-          `<button type="button" class="fav-btn" onclick="event.stopPropagation(); toggleFavoriteUI(this, '${{p.id}}')">${{isFavorite(p.id) ? '❤️' : '🤍'}}</button>` +
           `<button type="button" class="share-btn" onclick="event.stopPropagation(); sharePlace('${{p.id}}')">🔗</button>` +
           thumb +
           `<div class="info">` +
@@ -621,11 +498,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const parts = (s || '').split('.').map(Number);
     if (parts.length < 3 || parts.some(isNaN)) return null;
     return new Date(parts[0], parts[1] - 1, parts[2]);
-  }}
-
-  function fmtDate(d) {{
-    const pad = n => String(n).padStart(2, '0');
-    return `${{d.getFullYear()}}-${{pad(d.getMonth() + 1)}}-${{pad(d.getDate())}}`;
   }}
 
   let allPlaces = [];
@@ -657,26 +529,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }}
 
-  // 현재 지도 화면(뷰포트) 안에 있는 것만 남긴다 - 지역 칩을 없앤 뒤로는 이게 유일한
-  // 지리적 범위 기준이다.
-  function placesInViewport(list) {{
-    const bounds = map.getBounds();
-    if (!bounds) return list;
-    const sw = bounds.getSW(), ne = bounds.getNE();
-    if (sw.lat() === ne.lat() && sw.lng() === ne.lng()) return list; // 지도가 아직 실제 크기로 자리잡기 전(면적 0) - 필터링하지 않고 다음 bounds_changed에서 바로잡는다
-    return list.filter(p => bounds.hasLatLng(new naver.maps.LatLng(p.lat, p.lon)));
-  }}
-
-
   function activeValue(rowEl) {{
     const active = rowEl.querySelector('.chip.active');
     return active ? active.dataset.value : '';
   }}
-
-  let searchQuery = '';
-  let showFavoritesOnly = false;
-  let userPosition = null; // GPS 성공 시에만 채워진다 - 반경 필터의 기준점
-  let selectedRadiusKm = null;
 
   function haversineKm(lat1, lon1, lat2, lon2) {{
     const R = 6371;
@@ -687,75 +543,57 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }}
 
-  const MAX_RENDER = 500; // 지도를 너무 축소해서 결과가 이 이상 쏟아지면 확대를 유도한다
+  function withinBucheonRadius(list) {{
+    return list.filter(p => haversineKm(DEFAULT_CENTER[0], DEFAULT_CENTER[1], p.lat, p.lon) <= FIXED_RADIUS_KM);
+  }}
 
-  function renderTooManyMessage(count) {{
-    document.getElementById('listItems').innerHTML =
-      `<div class="empty-msg">이 범위에 ${{count}}건이나 있어요 🙈<br>지도를 확대하면 하나씩 보여드릴게요</div>`;
+  // "오늘부터 이번 주말까지" 창을 매번 오늘 날짜 기준으로 계산한다 - 사용자가 직접
+  // 고를 수 있는 날짜 UI는 없고 항상 이 고정 창만 쓴다. 오늘이 토요일이면 이번주말은
+  // 오늘~내일(일)까지, 일요일이면 이번주말은 오늘 하루(이미 토요일은 지났으므로)까지다.
+  function getThisWeekendRange() {{
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = today.getDay(); // 0=일 ~ 6=토
+    let sat;
+    if (day === 6) {{
+      sat = new Date(today);
+    }} else if (day === 0) {{
+      sat = new Date(today);
+      sat.setDate(sat.getDate() - 1);
+    }} else {{
+      sat = new Date(today);
+      sat.setDate(sat.getDate() + (6 - day));
+    }}
+    const sun = new Date(sat);
+    sun.setDate(sun.getDate() + 1);
+    return {{ today, sun }};
+  }}
+
+  // 공연/축제처럼 기간이 정해진 것만 이 창과 겹치는지 검사한다 - 상설 장소(공원/전시관 등)는
+  // 항상 통과(isTimeBound가 false라서 여기서 걸러지지 않음).
+  function withinThisWeekend(p) {{
+    if (!isTimeBound(p)) return true;
+    const start = toDateObj(p.start_date);
+    const end = toDateObj(p.end_date);
+    if (!start || !end) return false;
+    const {{ today, sun }} = getThisWeekendRange();
+    return start <= sun && end >= today;
   }}
 
   function applyFilters() {{
     closePopup(); // 필터가 바뀌면 이전에 열려있던 팝업은 더 이상 맞지 않으니 닫는다
     const cat = activeValue(document.getElementById('catChipRow'));
-    const dateVal = document.getElementById('dateFilter').value;
 
     let filtered = allPlaces;
     if (cat) filtered = filtered.filter(p => p.category === cat);
-    if (showFavoritesOnly) {{
-      const favIds = getFavoriteIds();
-      filtered = filtered.filter(p => favIds.has(p.id));
-    }}
-    if (selectedRadiusKm && userPosition) {{
-      filtered = filtered.filter(p => haversineKm(userPosition.lat, userPosition.lon, p.lat, p.lon) <= selectedRadiusKm);
-    }}
-    if (dateVal) {{
-      const [y, m, d] = dateVal.split('-').map(Number);
-      const sel = new Date(y, m - 1, d);
-      filtered = filtered.filter(p => {{
-        const start = toDateObj(p.start_date);
-        const end = toDateObj(p.end_date);
-        return start && end && sel >= start && sel <= end;
-      }});
-    }}
+    filtered = withinBucheonRadius(filtered);
+    filtered = filtered.filter(withinThisWeekend);
 
-    let tooMany = false;
-    if (searchQuery) {{
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(p =>
-        (p.title || '').toLowerCase().includes(q) ||
-        (p.venue || '').toLowerCase().includes(q) ||
-        (p.address || '').toLowerCase().includes(q)
-      );
-    }}
-    // 검색 중이거나 "찜한 곳만"을 보는 중일 땐 지금 지도 화면 밖에 있는 것도 나와야
-    // 의미가 있어서 뷰포트 제한을 건너뛴다 - 지역 칩이 있던 시절엔 없던 문제였는데,
-    // 뷰포트가 유일한 지리적 필터가 되면서 "찜한 곳만 눌렀는데 0건"처럼 결과가 안
-    // 보이는 게 검색에서 이미 한 번 겪은 것과 똑같은 원인이었다.
-    const bypassViewport = searchQuery || showFavoritesOnly;
-    if (bypassViewport) {{
-      if (filtered.length > 0 && filtered.length <= 200) {{
-        const bounds = new naver.maps.LatLngBounds();
-        filtered.forEach(p => bounds.extend(new naver.maps.LatLng(p.lat, p.lon)));
-        map.fitBounds(bounds);
-      }}
-    }} else {{
-      // 지역 칩이 없어진 뒤로는 "지금 지도 화면에 보이는 범위"가 유일한 지리적 기준이다.
-      filtered = placesInViewport(filtered);
-      if (filtered.length > MAX_RENDER) tooMany = true;
-    }}
-
-    if (tooMany) {{
-      renderMarkers([]);
-      renderTooManyMessage(filtered.length);
-    }} else {{
-      renderMarkers(filtered);
-      renderList(filtered);
-    }}
+    renderMarkers(filtered);
+    renderList(filtered);
     const label = document.getElementById('sheetLabel');
     if (label) label.textContent = `목록 보기 (${{filtered.length}}건)`;
-    document.getElementById('countText').textContent = tooMany
-      ? `${{filtered.length}}건 - 지도를 확대해보세요`
-      : `장소 ${{filtered.length}}/${{allPlaces.length}}건`;
+    document.getElementById('countText').textContent = `장소 ${{filtered.length}}건`;
   }}
 
   function setActiveChip(rowEl, value) {{
@@ -805,141 +643,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }});
 
   function initFilters(places) {{
-    // 최대 3개월(수집 창)까지만 선택 가능하게 막는다 (일부 공연은 종료일이 훨씬 먼 오픈런이라
-    // 실제 데이터의 최대 종료일 기준으로 하면 3개월을 훌쩍 넘겨버린다)
-    const dateInput = document.getElementById('dateFilter');
-    const today = new Date();
-    const maxEnd = new Date(today);
-    maxEnd.setMonth(maxEnd.getMonth() + 3);
-    dateInput.min = fmtDate(today);
-    dateInput.max = fmtDate(maxEnd);
-    // readonly/showPicker()는 브라우저에 따라 달력 아이콘 클릭까지 막아버릴 수 있어서,
-    // 대신 키보드 입력만 막아 숫자를 직접 타이핑하지 못하게 하고 달력 클릭은 그대로 둔다
-    dateInput.addEventListener('keydown', (e) => e.preventDefault());
-    dateInput.addEventListener('paste', (e) => e.preventDefault());
-
-    // 카테고리는 "전체"를 없앴다 - 모든 카테고리를 한 번에 뿌리면 마커·클러스터
-    // 계산량이 커서 느리기도 하고, "오늘 뭐 볼까" 용도로는 좁혀져 있는 게 더 쓸모
-    // 있다. 지역 칩은 없앴다 - 이제 지도 화면(뷰포트)에 보이는 범위가 곧 필터다.
-    // 카테고리는 공연·전시로 시작한다.
+    // "전체"를 맨 앞에 두고 기본 선택값으로 삼는다(initChipRow가 첫 항목을 active로 켬).
+    // 놀이공원은 컨셉에서 뺐고, 공연·전시는 공연/전시로 나눴다.
     const CATEGORY_ORDER = [
-      '공연·전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰',
-      '물놀이', '놀이공원',
+      '전체', '공연', '전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰', '물놀이',
     ];
     const presentCategories = new Set(places.map(p => p.category).filter(Boolean));
-    const categories = CATEGORY_ORDER.filter(c => presentCategories.has(c)).filter(isInSeason);
-    const catItems = categories.map(c => ({{ value: c, label: (CATEGORY_ICONS[c] || '🎫') + ' ' + c }}));
+    const categories = CATEGORY_ORDER
+      .filter(c => c === '전체' || presentCategories.has(c))
+      .filter(isInSeason);
+    const catItems = categories.map(c => ({{
+      value: c === '전체' ? '' : c,
+      label: c === '전체' ? '전체' : (CATEGORY_ICONS[c] || '🎫') + ' ' + c,
+    }}));
     initChipRow(document.getElementById('catChipRow'), catItems);
-
-    // 반경 필터는 GPS로 실제 내 위치를 알아야 의미가 있어서, geolocation이 성공했을 때만
-    // (fetch().then() 아래 콜백에서) 이 줄을 보여준다. 그 전까진 숨겨둔다.
-    const radiusRow = document.getElementById('radiusRow');
-    radiusRow.querySelectorAll('.chip').forEach(btn => {{
-      btn.addEventListener('click', () => {{
-        radiusRow.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const v = btn.dataset.radius;
-        selectedRadiusKm = v ? Number(v) : null;
-        applyFilters();
-      }});
-    }});
-
-    document.getElementById('dateFilter').addEventListener('change', applyFilters);
-    document.querySelectorAll('.date-row .chip').forEach(btn => {{
-      btn.addEventListener('click', () => {{
-        document.querySelectorAll('.date-row .chip').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const q = btn.dataset.quick;
-        if (q === 'today') {{
-          dateInput.value = fmtDate(new Date());
-        }} else if (q === 'tomorrow') {{
-          const d = new Date(); d.setDate(d.getDate() + 1);
-          dateInput.value = fmtDate(d);
-        }} else if (q === 'weekend') {{
-          const d = new Date();
-          const day = d.getDay();
-          const addDays = (6 - day + 7) % 7;
-          d.setDate(d.getDate() + addDays);
-          dateInput.value = fmtDate(d);
-        }} else {{
-          dateInput.value = '';
-        }}
-        applyFilters();
-      }});
-    }});
-
-    // 기본값: 오늘
-    dateInput.value = fmtDate(today);
-    document.querySelector('.date-row .chip[data-quick="today"]').classList.add('active');
-
-    // 검색: 지역/카테고리/날짜 필터와 AND로 동작한다 (필터 무시하고 엉뚱한 결과로 튀던
-    // 예전 검색과 달리, 이건 그냥 필터 조건 중 하나로 들어간다 - applyFilters 참고).
-    // 입력마다 바로 필터링하면 수천 건 마커를 매 타이핑마다 다시 그려서 버벅이므로 debounce.
-    const searchBox = document.getElementById('searchBox');
-    let searchDebounceTimer = null;
-    searchBox.addEventListener('input', () => {{
-      clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(() => {{
-        searchQuery = searchBox.value.trim();
-        applyFilters();
-      }}, 250);
-    }});
-
-    document.getElementById('favFilterBtn').addEventListener('click', () => {{
-      showFavoritesOnly = !showFavoritesOnly;
-      document.getElementById('favFilterBtn').classList.toggle('active', showFavoritesOnly);
-      applyFilters();
-    }});
   }}
-
-  // 지도를 GPS 위치로 옮겨도 "정확히 어디가 내 위치인지" 표시가 없으면 화면 가운데를
-  // 눈대중으로 짐작해야 해서 위치가 애매하게 느껴진다는 피드백으로, 파란 점 마커를
-  // 실제 좌표에 찍어서 더 이상 짐작할 필요가 없게 한다.
-  let myLocationMarker = null;
-  function showMyLocationMarker(lat, lon) {{
-    const pos = new naver.maps.LatLng(lat, lon);
-    if (myLocationMarker) {{
-      myLocationMarker.setPosition(pos);
-      return;
-    }}
-    myLocationMarker = new naver.maps.Marker({{
-      position: pos,
-      map: map,
-      icon: {{
-        content: '<div class="my-location-dot"></div>',
-        size: new naver.maps.Size(16, 16),
-        anchor: new naver.maps.Point(8, 8),
-      }},
-      zIndex: 150,
-    }});
-  }}
-
-  // 페이지 로드 시 자동으로 한 번 호출하는 것과, 아래 "현재 위치로 이동" 버튼이
-  // 같은 로직을 쓴다.
-  function goToCurrentLocation(zoom, onDenied) {{
-    if (!navigator.geolocation) {{
-      if (onDenied) onDenied();
-      return;
-    }}
-    navigator.geolocation.getCurrentPosition(
-      pos => {{
-        const lat = pos.coords.latitude, lon = pos.coords.longitude;
-        userPosition = {{ lat, lon }};
-        document.getElementById('radiusRow').style.display = 'flex';
-        showMyLocationMarker(lat, lon);
-        map.setCenter(new naver.maps.LatLng(lat, lon));
-        map.setZoom(zoom);
-      }},
-      () => {{ if (onDenied) onDenied(); }},
-      {{ timeout: 5000 }}
-    );
-  }}
-
-  document.getElementById('locateBtn').addEventListener('click', () => {{
-    goToCurrentLocation(15, () => {{
-      alert('위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.');
-    }});
-  }});
 
   fetch('data/places.json')
     .then(res => res.json())
@@ -949,7 +667,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       // 공유 링크(?place=id)로 들어온 경우 - 그냥 홈 화면 대신 공유받은 장소로 바로
       // 연다. 카테고리 칩도 그 장소 카테고리에 맞춰줘야 팝업 주변 목록/마커가 뜬금없지
-      // 않다 (예: 캠핑장을 공유받았는데 기본값인 공연·전시가 켜져있으면 이상함).
+      // 않다 (예: 전시를 공유받았는데 기본값인 전체가 아니라 다른 카테고리가 켜져있으면 이상함).
       const sharedId = new URLSearchParams(location.search).get('place');
       const sharedPlace = sharedId ? allPlaces.find(p => p.id === sharedId) : null;
       if (sharedPlace && sharedPlace.category) {{
@@ -961,8 +679,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       if (sharedPlace) {{
         openFromList(sharedPlace);
-      }} else {{
-        goToCurrentLocation(13); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
       }}
     }})
     .catch(() => {{
