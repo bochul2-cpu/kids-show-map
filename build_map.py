@@ -29,8 +29,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta property="og:type" content="website">
 <meta property="og:title" content="아이랑 가볼까">
 <meta property="og:description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천 근교 20km, 오늘부터 이번 주말까지">
-<meta property="og:image" content="https://bochul2-cpu.github.io/kids-show-map/icons/og-image.png">
-<meta property="og:url" content="https://bochul2-cpu.github.io/kids-show-map/">
+<meta property="og:image" content="https://bucheonkids.com/icons/og-image.png">
+<meta property="og:url" content="https://bucheonkids.com/">
 <meta name="twitter:card" content="summary_large_image">
 <script async src="https://www.googletagmanager.com/gtag/js?id={ga_measurement_id}"></script>
 <script>
@@ -279,7 +279,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   // 대분류 아이콘 - 마커/칩에서 우선적으로 쓴다
   const CATEGORY_ICONS = {{
     '공연': '🎭', '전시': '🖼️', '축제': '🎪', '나들이·산책': '🌳', '동물원·수족관': '🐾',
-    '체험·놀이': '🙌', '물놀이': '💦', '쇼핑몰': '🛍️',
+    '체험·놀이': '🙌', '물놀이·찜질방': '💦', '쇼핑몰': '🛍️',
   }};
 
   function iconFor(p) {{
@@ -287,10 +287,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
 
   // 계절이 지나면 어차피 텅 빈 결과만 나오는 카테고리는 칩 자체를 숨긴다
-  // (예: 한겨울에 물놀이 칩을 보여줘봤자 0건이라 혼란만 줌)
-  const SEASONAL_CATEGORIES = {{
-    '물놀이': [4, 5, 6, 7, 8, 9, 10],
-  }};
+  // (예: 한겨울에 물놀이 칩을 보여줘봤자 0건이라 혼란만 줌). 물놀이·찜질방은 찜질방이
+  // 겨울에도(오히려 더) 가는 곳이라 물놀이만 있던 시절의 계절 제한을 더 이상 안 쓴다.
+  const SEASONAL_CATEGORIES = {{}};
 
   function isInSeason(name) {{
     const months = SEASONAL_CATEGORIES[name];
@@ -656,7 +655,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     // "전체"를 맨 앞에 두고 기본 선택값으로 삼는다(initChipRow가 첫 항목을 active로 켬).
     // 놀이공원은 컨셉에서 뺐고, 공연·전시는 공연/전시로 나눴다.
     const CATEGORY_ORDER = [
-      '전체', '공연', '전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰', '물놀이',
+      '전체', '공연', '전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰', '물놀이·찜질방',
     ];
     const presentCategories = new Set(places.map(p => p.category).filter(Boolean));
     const categories = CATEGORY_ORDER
