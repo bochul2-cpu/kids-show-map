@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-21T08:56:36.532640+09:00",
-  "count": 4143,
+  "count": 4144,
   "places": [
     {
       "id": "PF299008",
@@ -99430,6 +99430,30 @@
       "schedule": "",
       "poster": "https://tong.visitkorea.or.kr/cms/resource/65/3565765_image2_1.jpg",
       "link": "https://search.naver.com/search.naver?query=%EC%83%81%EB%82%A8%EB%B6%84%EC%88%98%EA%B4%91%EC%9E%A5",
+      "telephone": "",
+      "approx_location": false,
+      "amenities": []
+    },
+    {
+      "id": "tour_558819",
+      "type": "place",
+      "category": "물놀이",
+      "genre": "웅진플레이도시",
+      "is_child": true,
+      "title": "웅진플레이도시",
+      "start_date": "2000.01.01",
+      "end_date": "2099.12.31",
+      "venue": "웅진플레이도시",
+      "address": "경기도 부천시 원미구 조마루로 2 (상동)",
+      "region_group": "수도권",
+      "lat": 37.5014854032,
+      "lon": 126.7441025547,
+      "age": "",
+      "price": "",
+      "runtime": "",
+      "schedule": "",
+      "poster": "https://tong.visitkorea.or.kr/cms/resource/85/3300185_image2_1.jpg",
+      "link": "https://search.naver.com/search.naver?query=%EC%9B%85%EC%A7%84%ED%94%8C%EB%A0%88%EC%9D%B4%EB%8F%84%EC%8B%9C",
       "telephone": "",
       "approx_location": false,
       "amenities": []

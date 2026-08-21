@@ -1,7 +1,7 @@
 """정적 index.html 셸을 생성한다. 공연 데이터는 빌드 시점에 박아넣지 않고,
 런타임에 data/places.json 을 fetch 해서 그린다. 아동 공연 전용 서비스.
 
-컨셉: "부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹" - 부천시청
+컨셉: "부천 사는 아빠가 만든 주말 나들이 지도" - 부천시청
 기준 반경 20km 이내, 오늘부터 이번 주말까지의 데이터만 고정으로 보여준다.
 지역/반경/날짜를 사용자가 직접 설정하는 UI는 없다 - 그냥 켜면 바로 결과가
 뜨고 훑어보고 나가는 것이 목적이라, 카테고리 선택 말고는 설정할 게 없다."""
@@ -14,7 +14,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>아이랑 가볼까</title>
-<meta name="description" content="부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹 - 부천 근교 20km, 오늘부터 이번 주말까지">
+<meta name="description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천 근교 20km, 오늘부터 이번 주말까지">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff7a50">
 <link rel="icon" href="icons/icon-192.png">
@@ -28,7 +28,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
      결정됨) 앱 전체 기준의 고정 카드만 가능하다. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="아이랑 가볼까">
-<meta property="og:description" content="부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹 - 부천 근교 20km, 오늘부터 이번 주말까지">
+<meta property="og:description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천 근교 20km, 오늘부터 이번 주말까지">
 <meta property="og:image" content="https://bochul2-cpu.github.io/kids-show-map/icons/og-image.png">
 <meta property="og:url" content="https://bochul2-cpu.github.io/kids-show-map/">
 <meta name="twitter:card" content="summary_large_image">
@@ -209,7 +209,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar" id="topbar">
   <div class="topbar-header">
-    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">부천 사는 아이아빠가 주말에 어디갈지 쉽게 보려고 만든 웹</span></div>
+    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">부천 사는 아빠가 만든 주말 나들이 지도</span></div>
     <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
   </div>
   <div class="topbar-body" id="topbarBody">
