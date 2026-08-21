@@ -4,17 +4,93 @@
 컨셉: "부천 사는 아빠가 만든 주말 나들이 지도" - 부천시청
 기준 반경 20km 이내, 오늘부터 이번 주말까지의 데이터만 고정으로 보여준다.
 지역/반경/날짜를 사용자가 직접 설정하는 UI는 없다 - 그냥 켜면 바로 결과가
-뜨고 훑어보고 나가는 것이 목적이라, 카테고리 선택 말고는 설정할 게 없다."""
-from settings import MAP_OUTPUT_PATH, GA_MEASUREMENT_ID
+뜨고 훑어보고 나가는 것이 목적이라, 카테고리 선택 말고는 설정할 게 없다.
+
+검색엔진(특히 네이버)은 JS를 잘 안 돌려서, 실제 목록은 fetch 이후 JS가 그려도
+크롤러 눈에는 빈 화면으로 보일 수 있다 - 그래서 빌드 시점에 "오늘~이번주말,
+20km" 필터를 파이썬으로 한 번 더 돌려 같은 결과를 정적 HTML로 미리 심어둔다.
+페이지가 열리면 JS가 이 자리를 다시 그려서 덮어쓰지만(카테고리 필터 등 정상
+동작), 크롤러는 이 정적 스냅샷을 그대로 읽어간다."""
+import html as html_escape
+import json
+import math
+from datetime import date, timedelta
+
+from settings import MAP_OUTPUT_PATH, GA_MEASUREMENT_ID, DATA_PATH
 from config import NAVER_MAP_CLIENT_ID
+
+BUCHEON_CENTER = (37.5034, 126.7660)
+SEO_RADIUS_KM = 20
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    r = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return r * 2 * math.asin(math.sqrt(a))
+
+
+def _to_date(s):
+    try:
+        y, m, d = (int(x) for x in s.split("."))
+        return date(y, m, d)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _this_weekend_range(today):
+    weekday = today.weekday()  # 월=0 ... 일=6
+    if weekday == 5:  # 토
+        sat = today
+    elif weekday == 6:  # 일
+        sat = today - timedelta(days=1)
+    else:
+        sat = today + timedelta(days=5 - weekday)
+    return sat + timedelta(days=1)  # 일요일
+
+
+def _seo_snapshot_html(today=None):
+    """JS의 withinBucheonRadius + withinThisWeekend + '전체' 카테고리와 동일한
+    필터를 파이썬으로 재현해 크롤러용 정적 목록 HTML을 만든다."""
+    try:
+        with open(DATA_PATH, encoding="utf-8") as f:
+            places = json.load(f)["places"]
+    except (FileNotFoundError, KeyError):
+        return ""
+
+    today = today or date.today()
+    sunday = _this_weekend_range(today)
+
+    cards = []
+    for p in places:
+        if _haversine_km(*BUCHEON_CENTER, p.get("lat", 0), p.get("lon", 0)) > SEO_RADIUS_KM:
+            continue
+        time_bound = p.get("type") == "performance" or p.get("category") == "축제"
+        if time_bound:
+            start, end = _to_date(p.get("start_date")), _to_date(p.get("end_date"))
+            if not start or not end or not (start <= sunday and end >= today):
+                continue
+        title = html_escape.escape(p.get("title", ""))
+        category = html_escape.escape(p.get("category", ""))
+        venue = html_escape.escape(p.get("venue", ""))
+        address = html_escape.escape(p.get("address", ""))
+        cards.append(
+            f'<div class="list-card"><div class="info">'
+            f'<span class="genre">{category}</span><h4>{title}</h4>'
+            f'<div class="meta">{venue} · {address}</div>'
+            f'</div></div>'
+        )
+
+    return "".join(cards)
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>아이랑 가볼까</title>
-<meta name="description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천 근교 20km, 오늘부터 이번 주말까지">
+<title>아이랑 가볼까 - 부천·인천 아이와 갈만한 곳, 주말 나들이 정보</title>
+<meta name="description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천·인천 근교 20km, 오늘부터 이번 주말까지 아이와 갈만한 공연·전시·나들이·체험·물놀이 정보">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff7a50">
 <link rel="icon" href="icons/icon-192.png">
@@ -222,7 +298,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <div class="main-layout">
   <div class="list-panel" id="listPanel">
     <div class="sheet-handle" id="sheetHandle"><div class="bar"></div><span id="sheetLabel">목록 보기</span></div>
-    <div class="list-items" id="listItems"></div>
+    <div class="list-items" id="listItems">{seo_snapshot}</div>
   </div>
   <div id="map"></div>
 </div>
@@ -700,7 +776,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 def main():
-    html = HTML_TEMPLATE.format(naver_map_client_id=NAVER_MAP_CLIENT_ID, ga_measurement_id=GA_MEASUREMENT_ID)
+    html = HTML_TEMPLATE.format(
+        naver_map_client_id=NAVER_MAP_CLIENT_ID,
+        ga_measurement_id=GA_MEASUREMENT_ID,
+        seo_snapshot=_seo_snapshot_html(),
+    )
     with open(MAP_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
 
