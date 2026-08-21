@@ -311,7 +311,7 @@
 
   function openPopupAt(position, anchor, html) {
     activePopupPosition = position;
-    panForPopup(position);
+    infowindow.setOptions({ pixelOffset: popupPixelOffset(position) });
     infowindow.setContent(html);
     infowindow.open(map, anchor);
   }
@@ -407,9 +407,14 @@
     );
   }
 
-  // 팝업이 위쪽 상단바에 가릴 때만, 가려지는 만큼만 살짝 내려서 보이게 한다.
-  // (매번 화면 중앙으로 옮기면 누른 위치가 계속 확 바뀌어 불편하다는 피드백으로 최소 이동으로 변경)
-  function panForPopup(position) {
+  // 팝업이 위쪽 상단바에 가릴 때만, 가려지는 만큼만 살짝 내려 보이게 한다. 예전엔 지도
+  // 자체를 그만큼 지리적으로 panTo() 했는데, 그 이동거리를 화면 픽셀 기준으로 계산하다보니
+  // 축소된 상태(1px당 실제 거리가 큼)에서 큰 지리적 이동이 되어버렸고, 그게 반경 제한
+  // (maxBounds)에 걸려 clamp되면서 지도가 엉뚱한 위치로 튀는 버그가 있었다(특히 반경
+  // 북쪽 경계에 가까운 마커일수록 심함). 지도를 움직이는 대신 InfoWindow의 pixelOffset만
+  // 화면 픽셀 단위로 조정해서 팝업만 시각적으로 내려 보이게 하면 지도 위치는 아예 안
+  // 건드리니 이 버그 자체가 생길 수 없다.
+  function popupPixelOffset(position) {
     const topbar = document.querySelector('.topbar');
     const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
     const popupH = window.innerWidth <= 480 ? 260 : 430;
@@ -417,17 +422,14 @@
     const proj = map.getProjection();
     const pt = proj.fromCoordToOffset(position);
 
-    const popupTopY = pt.y - popupH; // 팝업은 마커 위쪽에 뜬다
+    const popupTopY = pt.y - popupH; // 팝업은 기본적으로 마커 위쪽에 뜬다
     const neededTop = topbarBottom + 12;
     let shiftDown = Math.max(0, neededTop - popupTopY);
-    if (shiftDown === 0) return; // 이미 안 가리면 지도를 움직이지 않는다
 
-    const maxShift = Math.max(0, window.innerHeight - pt.y - 40); // 마커가 화면 밖 아래로 밀리지 않게 제한
+    const maxShift = Math.max(0, window.innerHeight - pt.y - 40); // 마커 아래로 너무 안 밀리게 제한
     shiftDown = Math.min(shiftDown, maxShift);
-    if (shiftDown === 0) return;
 
-    const shifted = new naver.maps.Point(pt.x, pt.y - shiftDown);
-    map.panTo(proj.fromOffsetToCoord(shifted));
+    return new naver.maps.Point(0, -10 + shiftDown);
   }
 
   function buildMarker(p) {
