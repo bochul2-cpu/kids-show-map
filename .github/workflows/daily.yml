@@ -34,6 +34,7 @@ jobs:
 
       - run: python collect.py
       - run: python collect_tour.py
+      - run: python collect_local.py
       - run: python build_map.py
 
       - name: Commit and push if data changed

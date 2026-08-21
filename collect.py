@@ -58,11 +58,11 @@ def region_group_from_address(address: str) -> str:
     return "기타"
 
 
-def request_with_retry(url: str, params: dict) -> requests.Response:
+def request_with_retry(url: str, params: dict, headers: dict | None = None) -> requests.Response:
     last_error = None
     for attempt in range(RETRY_ATTEMPTS):
         try:
-            response = requests.get(url, params=params, timeout=15)
+            response = requests.get(url, params=params, headers=headers, timeout=15)
             response.raise_for_status()
             return response
         except requests.RequestException as e:
@@ -130,6 +130,7 @@ def naver_fallback_location(venue_name: str) -> dict | None:
         response = request_with_retry(
             NAVER_API_URL,
             {"query": venue_name, "display": 1, "start": 1, "sort": "random"},
+            headers=NAVER_HEADERS,
         )
     except requests.RequestException:
         return None
