@@ -243,9 +243,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 - 앱의 고정 기준점
   const FIXED_RADIUS_KM = 20; // 데이터 표출 범위: 부천시청 반경 20km 고정
 
-  // 지도를 아무리 축소/이동해도 반경 20km 언저리 밖으로는 못 나가게 막는다 - 위도 1도
+  // 지도를 아무리 이동해도 부천 반경 20km 언저리 밖으로는 못 나가게 막는다 - 위도 1도
   // ≈ 111km, 경도 1도는 위도 37.5도 기준 ≈ 88km. 20km보다 살짝 넉넉하게(22km) 잡아서
   // 원이 화면 가장자리에 딱 붙지 않게 여유를 둔다.
+  // 주의: maxBounds는 "지도 중심 좌표"만 이 범위 안으로 묶어준다(네이버 지도 공식 문서) -
+  // 화면 가장자리가 이 범위를 넘어가는 것 자체는 막지 않으므로, 너무 축소했을 때 범위
+  // 밖까지 넓게 보이는 건 minZoom으로 따로 막아야 한다.
   const MAX_BOUNDS = new naver.maps.LatLngBounds(
     new naver.maps.LatLng(37.3052, 126.5162),
     new naver.maps.LatLng(37.7016, 127.0158)
@@ -253,9 +256,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   const map = new naver.maps.Map('map', {{
     zoom: 12,
-    minZoom: 10,
+    minZoom: 11,
     center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
-    extent: MAX_BOUNDS,
+    maxBounds: MAX_BOUNDS,
   }});
 
   // 클러스터 클릭 시 기본은 줌을 1단계만 올려서 여러 번 눌러야 흩어짐 - 한 번에 크게 확대되도록 오버라이드
