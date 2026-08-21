@@ -18,6 +18,8 @@ from settings import (
     LOCAL_SEARCH_AREAS,
     LOCAL_SEARCH_KEYWORDS,
     LOCAL_SEARCH_CATEGORY,
+    LOCAL_SEARCH_EXCLUDE_CATEGORY_PREFIXES,
+    LOCAL_SEARCH_EXCLUDE_GENRES,
     LOCAL_DATA_PATH,
 )
 from config import NAVER_HEADERS
@@ -66,10 +68,20 @@ def build_local_place(item: dict) -> dict | None:
     if haversine_km(CENTER_LAT, CENTER_LON, lat, lon) > MAX_RADIUS_KM:
         return None
 
+    category_raw = item.get("category", "")
+    if any(category_raw.startswith(p) for p in LOCAL_SEARCH_EXCLUDE_CATEGORY_PREFIXES):
+        return None  # 체험형이 아닌 일반 디저트/베이커리 카페 - 검색어에 딸려온 노이즈
+
     title = strip_tags(item.get("title", ""))
     address = item.get("roadAddress") or item.get("address", "")
-    category_raw = item.get("category", "")
-    genre = category_raw.split(",")[0].strip() if category_raw else "체험"
+    # "생활,편의>공방"처럼 '>' 뒤가 더 구체적인 경우가 많아 그쪽을 우선한다.
+    genre = category_raw.split(">")[-1].split(",")[0].strip() if category_raw else "체험"
+
+    # genre가 무관한 업종이어도, 제목 자체에 우리가 찾던 테마 키워드가 그대로 들어있으면
+    # (예: "헬로슬라임카페"인데 NAVER category가 엉뚱하게 "한식"으로 잡힌 경우) 살린다.
+    title_has_theme_keyword = any(kw in title for kw in LOCAL_SEARCH_KEYWORDS)
+    if genre in LOCAL_SEARCH_EXCLUDE_GENRES and not title_has_theme_keyword:
+        return None
 
     # NAVER contentid가 따로 없어서, 매번 같은 업체는 같은 id가 나오도록(재실행해도
     # 중복/증식 안 되도록) 이름+주소 해시로 안정적인 id를 만든다.
