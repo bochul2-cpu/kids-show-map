@@ -410,23 +410,28 @@
   // 팝업이 위쪽 상단바에 가릴 때만, 가려지는 만큼만 살짝 내려 보이게 한다. 예전엔 지도
   // 자체를 그만큼 지리적으로 panTo() 했는데, 그 이동거리를 화면 픽셀 기준으로 계산하다보니
   // 축소된 상태(1px당 실제 거리가 큼)에서 큰 지리적 이동이 되어버렸고, 그게 반경 제한
-  // (maxBounds)에 걸려 clamp되면서 지도가 엉뚱한 위치로 튀는 버그가 있었다(특히 반경
-  // 북쪽 경계에 가까운 마커일수록 심함). 지도를 움직이는 대신 InfoWindow의 pixelOffset만
-  // 화면 픽셀 단위로 조정해서 팝업만 시각적으로 내려 보이게 하면 지도 위치는 아예 안
-  // 건드리니 이 버그 자체가 생길 수 없다.
+  // (maxBounds)에 걸려 clamp되면서 지도가 엉뚱한 위치로 튀는 버그가 있었다. 그래서 지도를
+  // 움직이는 대신 InfoWindow의 pixelOffset만 화면 픽셀 단위로 조정하도록 바꿨는데, 그때
+  // proj.fromCoordToOffset()이 돌려주는 좌표를 페이지(뷰포트) 기준 픽셀로 착각해서 그대로
+  // topbarBottom/innerHeight(둘 다 뷰포트 기준)와 비교했다 - 실제로는 "#map 지도 컨테이너"
+  // 왼쪽위 모서리 기준 좌표라서, 상단바 높이만큼 차이가 나면서 팝업이 마커랑 다른 위치에
+  // 뜨는 버그가 생겼다(북쪽 대상일수록 이 계산이 더 크게 틀어짐). #map 요소의 실제 화면
+  // 위치(getBoundingClientRect)를 더해서 진짜 뷰포트 기준 좌표로 바꿔서 비교한다.
   function popupPixelOffset(position) {
     const topbar = document.querySelector('.topbar');
     const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
     const popupH = window.innerWidth <= 480 ? 260 : 430;
 
     const proj = map.getProjection();
-    const pt = proj.fromCoordToOffset(position);
+    const pt = proj.fromCoordToOffset(position); // #map 컨테이너 기준 좌표
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    const screenY = mapRect.top + pt.y; // 뷰포트(페이지) 기준 실제 화면 Y
 
-    const popupTopY = pt.y - popupH; // 팝업은 기본적으로 마커 위쪽에 뜬다
+    const popupTopY = screenY - popupH; // 팝업은 기본적으로 마커 위쪽에 뜬다
     const neededTop = topbarBottom + 12;
     let shiftDown = Math.max(0, neededTop - popupTopY);
 
-    const maxShift = Math.max(0, window.innerHeight - pt.y - 40); // 마커 아래로 너무 안 밀리게 제한
+    const maxShift = Math.max(0, window.innerHeight - screenY - 40); // 마커 아래로 너무 안 밀리게 제한
     shiftDown = Math.min(shiftDown, maxShift);
 
     return new naver.maps.Point(0, -10 + shiftDown);
