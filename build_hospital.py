@@ -112,6 +112,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div class="tab-row">
     <button type="button" class="tab-btn active" data-cat="소아과">🧒 병원 (지금 열린 곳)</button>
     <button type="button" class="tab-btn" data-cat="응급실">🚑 응급실</button>
+    <button type="button" class="tab-btn" data-cat="약국">💊 약국</button>
   </div>
   <div class="locate-row">
     <button type="button" class="locate-btn" id="locateBtn">📍 내 위치에서 가까운 순</button>
@@ -182,7 +183,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       ? allHospitals.filter(h => h.category === '소아과' || h.category === '일반의원')
       : allHospitals.filter(h => h.category === activeCat);
 
-    if (activeCat === '소아과') {{
+    if (activeCat === '소아과' || activeCat === '약국') {{
       list = list.filter(h => isOpenNow(h.hours));
     }}
 
@@ -193,10 +194,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     list.sort((a, b) => tierOf(a) - tierOf(b) || a._dist - b._dist);
 
     if (list.length === 0) {{
-      const msg = activeCat === '소아과'
-        ? '지금 문 연 병원이 없어요 😢<br>응급실 탭을 확인해보세요'
-        : '주변에 응급실 정보가 없어요';
-      container.innerHTML = `<div class="empty-msg">${{msg}}</div>`;
+      const msgs = {{
+        '소아과': '지금 문 연 병원이 없어요 😢<br>응급실 탭을 확인해보세요',
+        '약국': '지금 문 연 약국이 없어요 😢',
+        '응급실': '주변에 응급실 정보가 없어요',
+      }};
+      container.innerHTML = `<div class="empty-msg">${{msgs[activeCat] || '결과가 없어요'}}</div>`;
       return;
     }}
 
@@ -206,6 +209,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         badge = `<span class="badge open">🟢 소아과 진료중 · ${{todayHoursText(h.hours)}}</span>`;
       }} else if (h.category === '일반의원') {{
         badge = `<span class="badge general">⚠️ 진료중(소아과 아님) · ${{todayHoursText(h.hours)}} · 전화 확인 필요</span>`;
+      }} else if (h.category === '약국') {{
+        badge = `<span class="badge open">💊 영업중 · ${{todayHoursText(h.hours)}}</span>`;
       }} else {{
         badge = `<span class="badge er">🚑 응급실</span>`;
       }}

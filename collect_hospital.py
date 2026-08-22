@@ -1,11 +1,11 @@
-"""국립중앙의료원 "전국 병·의원 찾기 서비스" API로 부천 20km 반경 안의 소아과와
-응급실을 모아서 data/hospitals.json으로 저장한다. "아이가 아파요" 페이지 전용 데이터라
-기존 나들이용 data/places.json과는 완전히 분리한다 - 필터링 방식(진료시간 기반 지금 열림
-여부)도, 화면(hospital.html)도 다르기 때문.
+"""국립중앙의료원 "전국 병·의원 찾기 서비스"/"전국 약국 정보 조회 서비스" API로 부천
+20km 반경 안의 소아과·일반의원·응급실·약국을 모아서 data/hospitals.json으로 저장한다.
+"아이가 아파요" 페이지 전용 데이터라 기존 나들이용 data/places.json과는 완전히
+분리한다 - 필터링 방식(진료시간 기반 지금 열림 여부)도, 화면(hospital.html)도 다르기 때문.
 
-병상 가용 현황 같은 실시간 숫자는 이 API에서 제공하는 필드(hvec/hvgc 등)의 정확한 의미를
-공식 문서로 확인하지 못해서 일부러 안 쓴다 - 의료 상황에서 잘못된 숫자를 보여주는 것보다
-이름/주소/전화번호까지만 보여주고 전화로 확인하게 하는 게 안전하다.
+병상 가용 현황 같은 실시간 숫자는 응급의료기관 API가 제공하는 필드(hvec/hvgc 등)의
+정확한 의미를 공식 문서로 확인하지 못해서 일부러 안 쓴다 - 의료 상황에서 잘못된 숫자를
+보여주는 것보다 이름/주소/전화번호까지만 보여주고 전화로 확인하게 하는 게 안전하다.
 """
 import json
 import time
@@ -20,7 +20,8 @@ REQUEST_DELAY = 0.1
 NUM_OF_ROWS = 100
 KST = timezone(timedelta(hours=9))
 
-BASE_URL = "http://apis.data.go.kr/B552657/HsptlAsembySearchService/getHsptlMdcncListInfoInqire"
+HOSPITAL_URL = "http://apis.data.go.kr/B552657/HsptlAsembySearchService/getHsptlMdcncListInfoInqire"
+PHARMACY_URL = "http://apis.data.go.kr/B552657/ErmctInsttInfoInqireService/getParmacyListInfoInqire"
 
 CENTER_LAT, CENTER_LON = 37.5034, 126.7660  # 부천시청
 MAX_RADIUS_KM = 20
@@ -62,7 +63,7 @@ def haversine_km(lat1, lon1, lat2, lon2):
     return 6371 * 2 * asin(sqrt(a))
 
 
-def fetch_area(q0: str, q1: str) -> list[dict]:
+def fetch_area(base_url: str, q0: str, q1: str) -> list[dict]:
     items = []
     page = 1
     while True:
@@ -72,7 +73,7 @@ def fetch_area(q0: str, q1: str) -> list[dict]:
             "pageNo": page, "numOfRows": NUM_OF_ROWS,
             "_type": "json",
         }
-        resp = requests.get(BASE_URL, params=params, timeout=15)
+        resp = requests.get(base_url, params=params, timeout=15)
         resp.raise_for_status()
         body = resp.json().get("response", {}).get("body", {})
         page_items = body.get("items", "")
@@ -102,7 +103,7 @@ def build_hours(item: dict) -> list[dict]:
     return hours
 
 
-def build_entry(item: dict, category: str) -> dict | None:
+def build_entry(item: dict, category: str, id_prefix: str = "hosp") -> dict | None:
     try:
         lat = float(item.get("wgs84Lat", 0))
         lon = float(item.get("wgs84Lon", 0))
@@ -118,7 +119,7 @@ def build_entry(item: dict, category: str) -> dict | None:
         return None
 
     entry = {
-        "id": f"hosp_{hpid}",
+        "id": f"{id_prefix}_{hpid}",
         "category": category,
         "title": item.get("dutyName", ""),
         "address": item.get("dutyAddr", ""),
@@ -126,7 +127,7 @@ def build_entry(item: dict, category: str) -> dict | None:
         "lat": lat,
         "lon": lon,
     }
-    if category in ("소아과", "일반의원"):
+    if category in ("소아과", "일반의원", "약국"):
         entry["hours"] = build_hours(item)
     return entry
 
@@ -136,10 +137,10 @@ def collect_hospitals() -> list[dict]:
     entries: list[dict] = []
     for q0, q1 in AREAS:
         try:
-            items = fetch_area(q0, q1)
+            items = fetch_area(HOSPITAL_URL, q0, q1)
         except requests.RequestException as e:
-            print(f"[경고] {q0} {q1} 조회 실패: {e}")
-            continue
+            print(f"[경고] {q0} {q1} 병원 조회 실패: {e}")
+            items = []
 
         for item in items:
             name = item.get("dutyName", "")
@@ -161,6 +162,18 @@ def collect_hospitals() -> list[dict]:
                     seen_ids.add(entry["id"])
                     entries.append(entry)
 
+        try:
+            pharmacy_items = fetch_area(PHARMACY_URL, q0, q1)
+        except requests.RequestException as e:
+            print(f"[경고] {q0} {q1} 약국 조회 실패: {e}")
+            pharmacy_items = []
+
+        for item in pharmacy_items:
+            entry = build_entry(item, "약국", id_prefix="pharm")
+            if entry and entry["id"] not in seen_ids:
+                seen_ids.add(entry["id"])
+                entries.append(entry)
+
         print(f"[진행] {q0} {q1} 완료, 누적 {len(entries)}건")
         time.sleep(REQUEST_DELAY)
     return entries
@@ -179,7 +192,8 @@ def main():
     pediatric = sum(1 for e in entries if e["category"] == "소아과")
     general = sum(1 for e in entries if e["category"] == "일반의원")
     er = sum(1 for e in entries if e["category"] == "응급실")
-    print(f"소아과 {pediatric}건, 일반의원 {general}건, 응급실 {er}건 -> {DATA_PATH}")
+    pharmacy = sum(1 for e in entries if e["category"] == "약국")
+    print(f"소아과 {pediatric}건, 일반의원 {general}건, 응급실 {er}건, 약국 {pharmacy}건 -> {DATA_PATH}")
 
 
 if __name__ == "__main__":
