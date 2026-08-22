@@ -14,4 +14,8 @@ NAVER_HEADERS = {
 NAVER_MAP_CLIENT_ID = "여기에_Maps_Client_ID"
 
 # TourAPI 인증키 발급: data.go.kr > "한국관광공사_국문 관광정보 서비스" 검색 > 활용신청
+# data.go.kr은 계정당 인증키가 공통이라, 아래 두 서비스도 각각 활용신청만 해두면
+# 이 키 그대로 쓸 수 있다 - collect_hospital.py(아이랑 병원)에서 사용:
+#   - "국립중앙의료원_전국 병·의원 찾기 서비스" (소아과 진료시간)
+#   - "국립중앙의료원_전국 응급의료기관 정보 조회 서비스" (응급실 목록)
 TOUR_API_KEY = "여기에_발급받은_TourAPI_인증키"
