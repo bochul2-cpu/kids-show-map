@@ -41,6 +41,17 @@ AREAS = [
 
 PEDIATRIC_KEYWORDS = ["소아청소년과", "소아과"]
 
+# "부천연세365의원"처럼 이름에 전문과목이 안 붙은 일반의원(가정의학과/내과 계열이 많음)은
+# 소아청소년과로 공식 등록은 안 돼있어도 실제로 아이를 봐주는 경우가 많다. 그렇다고
+# dutyDiv=='C'(의원) 전체를 넣으면 산부인과/피부과처럼 아이 진료와 무관한 곳까지 다
+# 섞여서, 이름으로 봤을 때 명백히 무관한 과만 제외하고 나머지는 "일반의원"으로 넣는다.
+# 이 경우 화면에서 "소아과 아님, 전화로 확인 필요" 안내를 반드시 같이 보여준다.
+IRRELEVANT_KEYWORDS = [
+    "산부인과", "비뇨기과", "비뇨의학과", "피부과", "정신건강의학과", "정신과",
+    "마취통증의학과", "성형외과", "정형외과", "안과", "영상의학과", "진단검사의학과",
+    "재활의학과", "신경외과", "신경과", "흉부외과", "심장내과", "남성", "미용",
+]
+
 DATA_PATH = "data/hospitals.json"
 
 
@@ -115,7 +126,7 @@ def build_entry(item: dict, category: str) -> dict | None:
         "lat": lat,
         "lon": lon,
     }
-    if category == "소아과":
+    if category in ("소아과", "일반의원"):
         entry["hours"] = build_hours(item)
     return entry
 
@@ -133,10 +144,16 @@ def collect_hospitals() -> list[dict]:
         for item in items:
             name = item.get("dutyName", "")
             is_pediatric = any(k in name for k in PEDIATRIC_KEYWORDS)
+            is_general_clinic = (
+                not is_pediatric
+                and item.get("dutyDiv") == "C"
+                and not any(k in name for k in IRRELEVANT_KEYWORDS)
+            )
             is_er = item.get("dutyEmclsName", "응급의료기관 이외") != "응급의료기관 이외"
 
             for category in filter(None, [
                 "소아과" if is_pediatric else None,
+                "일반의원" if is_general_clinic else None,
                 "응급실" if is_er else None,
             ]):
                 entry = build_entry(item, category)
@@ -160,8 +177,9 @@ def main():
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
     pediatric = sum(1 for e in entries if e["category"] == "소아과")
+    general = sum(1 for e in entries if e["category"] == "일반의원")
     er = sum(1 for e in entries if e["category"] == "응급실")
-    print(f"소아과 {pediatric}건, 응급실 {er}건 -> {DATA_PATH}")
+    print(f"소아과 {pediatric}건, 일반의원 {general}건, 응급실 {er}건 -> {DATA_PATH}")
 
 
 if __name__ == "__main__":
