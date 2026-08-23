@@ -1,16 +1,20 @@
 """정적 index.html 셸을 생성한다. 공연 데이터는 빌드 시점에 박아넣지 않고,
 런타임에 data/places.json 을 fetch 해서 그린다. 아동 공연 전용 서비스.
 
-컨셉: "부천 사는 아빠가 만든 주말 나들이 지도" - 부천시청
-기준 반경 20km 이내, 오늘부터 이번 주말까지의 데이터만 고정으로 보여준다.
-지역/반경/날짜를 사용자가 직접 설정하는 UI는 없다 - 그냥 켜면 바로 결과가
-뜨고 훑어보고 나가는 것이 목적이라, 카테고리 선택 말고는 설정할 게 없다.
+컨셉: "부천 사는 아빠가 만든 주말 나들이 지도" - 오늘부터 이번 주말까지의
+데이터만 고정으로 보여준다. 지역 범위는 예전엔 부천시청 기준 20km로 고정이었는데,
+지금은 데이터 자체를 전국으로 모아두고 화면에 보여줄 때만 "현재 위치(GPS) 기준
+20km"로 필터링한다 - 부천 사람이든 다른 지역 사람이든 자기 위치 기준으로 결과를
+보게 하려는 것. GPS를 거부/실패하면 부천시청을 기본값으로 쓴다.
+날짜를 사용자가 직접 설정하는 UI는 없다 - 그냥 켜면 바로 결과가 뜨고 훑어보고
+나가는 것이 목적이라, 카테고리 선택 말고는 설정할 게 없다.
 
 검색엔진(특히 네이버)은 JS를 잘 안 돌려서, 실제 목록은 fetch 이후 JS가 그려도
 크롤러 눈에는 빈 화면으로 보일 수 있다 - 그래서 빌드 시점에 "오늘~이번주말,
-20km" 필터를 파이썬으로 한 번 더 돌려 같은 결과를 정적 HTML로 미리 심어둔다.
-페이지가 열리면 JS가 이 자리를 다시 그려서 덮어쓰지만(카테고리 필터 등 정상
-동작), 크롤러는 이 정적 스냅샷을 그대로 읽어간다."""
+부천 20km" 필터를 파이썬으로 한 번 더 돌려 같은 결과를 정적 HTML로 미리 심어둔다
+(크롤러는 GPS를 안 쓰니 부천 기준 스냅샷이 그나마 대표성 있는 기본값이다).
+페이지가 열리면 JS가 이 자리를 다시 그려서 덮어쓰지만(카테고리 필터, GPS 기반
+재정렬 등 정상 동작), 크롤러는 이 정적 스냅샷을 그대로 읽어간다."""
 import html as html_escape
 import json
 import math
@@ -51,7 +55,7 @@ def _this_weekend_range(today):
 
 
 def _seo_snapshot_html(today=None):
-    """JS의 withinBucheonRadius + withinThisWeekend + '전체' 카테고리와 동일한
+    """JS의 withinRadius(부천 기준) + withinThisWeekend + '전체' 카테고리와 동일한
     필터를 파이썬으로 재현해 크롤러용 정적 목록 HTML을 만든다."""
     try:
         with open(DATA_PATH, encoding="utf-8") as f:
@@ -167,6 +171,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   .main-layout {{ flex: 1; display: flex; position: relative; overflow: hidden; }}
   #map {{ flex: 1; height: 100%; }}
 
+  .locate-btn {{
+    position: absolute; right: 12px; bottom: 56px; z-index: 25;
+    width: 42px; height: 42px; border-radius: 50%; border: none;
+    background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }}
+  .locate-btn:active {{ background: #fff1ea; }}
+
   .list-panel {{
     width: 380px; flex-shrink: 0; background: #fff8f3; overflow-y: auto;
     border-right: 1px solid #ffe1d0;
@@ -202,6 +214,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   /* ---------- 모바일: 지도 위로 올라오는 바텀시트 ---------- */
   @media (max-width: 768px) {{
     .brand .tagline {{ display: none; }}
+    .locate-btn {{ bottom: 64px; }} /* 접힌 바텀시트 핸들(46px) 위로 여유 있게 */
 
     /* 상단 필터 메뉴 전체를 접었다 폈다 할 수 있게 한다 (모바일 전용) - 목록을
        "목록 보기"로 펼치면 자동으로 접혀서 지도/목록에 화면을 더 내준다.
@@ -223,6 +236,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }}
     .sheet-handle .bar {{ width: 36px; height: 4px; background: #ffcbb0; border-radius: 2px; margin: 0 auto 6px; }}
     .list-items {{ overflow-y: auto; }}
+  }}
+
+  /* ---------- 내 위치 표시 ---------- */
+  .my-location-dot {{
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #4285f4; border: 3px solid white;
+    box-shadow: 0 0 0 3px rgba(66,133,244,0.35), 0 1px 4px rgba(0,0,0,0.3);
   }}
 
   /* ---------- 커스텀 핀 마커 ---------- */
@@ -312,6 +332,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="list-items" id="listItems">{seo_snapshot}</div>
   </div>
   <div id="map"></div>
+  <button type="button" class="locate-btn" id="locateBtn" aria-label="현재 위치로 이동" title="현재 위치로 이동">🧭</button>
 </div>
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId={naver_map_client_id}"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/navermaps/marker-tools.js@master/marker-clustering/src/MarkerClustering.js"></script>
@@ -327,25 +348,35 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }}, 1200);
   }};
 
-  const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 - 앱의 고정 기준점
-  const FIXED_RADIUS_KM = 20; // 데이터 표출 범위: 부천시청 반경 20km 고정
+  const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 - GPS 거부/실패 시 기본값
+  const FIXED_RADIUS_KM = 20; // 데이터 표출 범위: 현재 위치(또는 기본값) 반경 20km 고정
+  // 데이터는 이제 전국이 다 들어있고(예전엔 부천 20km만 수집했음), 화면에 보여주는
+  // 범위만 "현재 위치 기준 20km"로 고정한다 - 부천 사람이든 다른 지역 사람이든 자기
+  // 위치 기준으로 결과를 보게 하려는 것. GPS를 거부/실패하면 예전처럼 부천 기준으로 뜬다.
+  let currentCenter = DEFAULT_CENTER;
 
-  // 지도를 아무리 이동해도 부천 반경 20km 언저리 밖으로는 못 나가게 막는다 - 위도 1도
-  // ≈ 111km, 경도 1도는 위도 37.5도 기준 ≈ 88km. 20km보다 살짝 넉넉하게(22km) 잡아서
-  // 원이 화면 가장자리에 딱 붙지 않게 여유를 둔다.
+  // 지도를 아무리 이동해도 중심 반경 20km 언저리 밖으로는 못 나가게 막는다 - 위도 1도
+  // ≈ 111km, 경도 1도는 위도에 따라 다름(고위도일수록 짧아짐)이라 매번 그 위도 기준으로
+  // 계산한다. 20km보다 살짝 넉넉하게(22km) 잡아서 원이 화면 가장자리에 딱 붙지 않게
+  // 여유를 둔다.
   // 주의: maxBounds는 "지도 중심 좌표"만 이 범위 안으로 묶어준다(네이버 지도 공식 문서) -
   // 화면 가장자리가 이 범위를 넘어가는 것 자체는 막지 않으므로, 너무 축소했을 때 범위
   // 밖까지 넓게 보이는 건 minZoom으로 따로 막아야 한다.
-  const MAX_BOUNDS = new naver.maps.LatLngBounds(
-    new naver.maps.LatLng(37.3052, 126.5162),
-    new naver.maps.LatLng(37.7016, 127.0158)
-  );
+  function computeMaxBounds(lat, lon) {{
+    const padKm = 22;
+    const dLat = padKm / 111;
+    const dLon = padKm / (111 * Math.cos(lat * Math.PI / 180));
+    return new naver.maps.LatLngBounds(
+      new naver.maps.LatLng(lat - dLat, lon - dLon),
+      new naver.maps.LatLng(lat + dLat, lon + dLon)
+    );
+  }}
 
   const map = new naver.maps.Map('map', {{
     zoom: 12,
     minZoom: 11,
     center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
-    maxBounds: MAX_BOUNDS,
+    maxBounds: computeMaxBounds(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
   }});
 
   // 클러스터 클릭 시 기본은 줌을 1단계만 올려서 여러 번 눌러야 흩어짐 - 한 번에 크게 확대되도록 오버라이드
@@ -639,8 +670,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }}
 
-  function withinBucheonRadius(list) {{
-    return list.filter(p => haversineKm(DEFAULT_CENTER[0], DEFAULT_CENTER[1], p.lat, p.lon) <= FIXED_RADIUS_KM);
+  function withinRadius(list) {{
+    return list.filter(p => haversineKm(currentCenter[0], currentCenter[1], p.lat, p.lon) <= FIXED_RADIUS_KM);
   }}
 
   // "오늘부터 이번 주말까지" 창을 매번 오늘 날짜 기준으로 계산한다 - 사용자가 직접
@@ -682,7 +713,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     let filtered = allPlaces;
     if (cat) filtered = filtered.filter(p => p.category === cat);
-    filtered = withinBucheonRadius(filtered);
+    filtered = withinRadius(filtered);
     filtered = filtered.filter(withinThisWeekend);
 
     renderMarkers(filtered);
@@ -755,6 +786,58 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     initChipRow(document.getElementById('catChipRow'), catItems);
   }}
 
+  // 지도를 GPS 위치로 옮겨도 "정확히 어디가 내 위치인지" 표시가 없으면 화면 가운데를
+  // 눈대중으로 짐작해야 해서 위치가 애매하게 느껴진다는 피드백으로, 파란 점 마커를
+  // 실제 좌표에 찍어서 더 이상 짐작할 필요가 없게 한다.
+  let myLocationMarker = null;
+  function showMyLocationMarker(lat, lon) {{
+    const pos = new naver.maps.LatLng(lat, lon);
+    if (myLocationMarker) {{
+      myLocationMarker.setPosition(pos);
+      return;
+    }}
+    myLocationMarker = new naver.maps.Marker({{
+      position: pos,
+      map: map,
+      icon: {{
+        content: '<div class="my-location-dot"></div>',
+        size: new naver.maps.Size(16, 16),
+        anchor: new naver.maps.Point(8, 8),
+      }},
+      zIndex: 150,
+    }});
+  }}
+
+  // 페이지 로드 시 자동으로 한 번 호출하는 것과, 아래 "현재 위치로 이동" 버튼이
+  // 같은 로직을 쓴다. 성공하면 화면 표출 기준점(currentCenter)도 그 위치로 옮기고
+  // 지도의 최대 이동범위(maxBounds)도 그 위치 기준으로 다시 계산해서, "현재 위치
+  // 반경 20km"라는 필터가 이름 그대로 동작하게 한다.
+  function goToCurrentLocation(zoom, onDenied) {{
+    if (!navigator.geolocation) {{
+      if (onDenied) onDenied();
+      return;
+    }}
+    navigator.geolocation.getCurrentPosition(
+      pos => {{
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        currentCenter = [lat, lon];
+        map.setOptions('maxBounds', computeMaxBounds(lat, lon));
+        showMyLocationMarker(lat, lon);
+        map.setCenter(new naver.maps.LatLng(lat, lon));
+        map.setZoom(zoom);
+        applyFilters();
+      }},
+      () => {{ if (onDenied) onDenied(); }},
+      {{ timeout: 5000 }}
+    );
+  }}
+
+  document.getElementById('locateBtn').addEventListener('click', () => {{
+    goToCurrentLocation(15, () => {{
+      alert('위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.');
+    }});
+  }});
+
   fetch('data/places.json')
     .then(res => res.json())
     .then(data => {{
@@ -775,6 +858,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       if (sharedPlace) {{
         openFromList(sharedPlace);
+      }} else {{
+        goToCurrentLocation(13); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
       }}
     }})
     .catch(() => {{

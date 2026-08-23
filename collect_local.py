@@ -31,18 +31,9 @@ ALWAYS_OPEN_START = "2000.01.01"
 ALWAYS_OPEN_END = "2099.12.31"
 KST = timezone(timedelta(hours=9))
 
-# 부천시청 기준 20km - 지도(build_map.py)가 실제로 보여주는 범위와 맞춰서, 애초에
-# 절대 안 보일 먼 지역 업체까지 데이터에 쌓아두지 않는다.
-CENTER_LAT, CENTER_LON = 37.5034, 126.7660
-MAX_RADIUS_KM = 20
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    from math import radians, sin, cos, asin, sqrt
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
-    return 6371 * 2 * asin(sqrt(a))
+# 예전엔 부천시청 기준 20km로 수집 단계에서부터 걸러냈는데, 화면 필터가 "부천 고정"에서
+# "현재 위치 기준 20km"로 바뀌면서 수집은 전국으로 넓히고 거리 필터는 화면(JS)에서
+# 사용자 위치 기준으로 매번 다시 계산하도록 옮겼다.
 
 
 def strip_tags(text: str) -> str:
@@ -75,8 +66,6 @@ def build_local_place(item: dict, category: str, existing_titles: set[str]) -> d
     except (KeyError, ValueError):
         return None
     if not lat or not lon:
-        return None
-    if haversine_km(CENTER_LAT, CENTER_LON, lat, lon) > MAX_RADIUS_KM:
         return None
 
     category_raw = item.get("category", "")
