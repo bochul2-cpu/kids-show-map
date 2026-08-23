@@ -79,6 +79,9 @@
   .badge.general { background: #fff4e0; color: #b26a00; }
   .badge.er { background: #fdeaea; color: #c0392b; }
   .h-card h4 { font-size: 15px; margin: 0 0 4px; }
+  .h-card h4 a { color: #333; text-decoration: none; }
+  .h-card h4 a:hover { text-decoration: underline; }
+  .h-card h4 .search-hint { font-size: 11px; color: #bbb; font-weight: 400; margin-left: 4px; }
   .h-card .meta { font-size: 12.5px; color: #888; margin-bottom: 2px; }
   .h-card .dist { font-size: 11.5px; color: #bbb; }
   .h-card .btn-row { display: flex; gap: 6px; margin-top: 10px; }
@@ -205,10 +208,14 @@
       } else {
         badge = `<span class="badge er">🚑 응급실</span>`;
       }
+      // 이름만으로는 "강남의원"처럼 흔한 이름이 많아서, 검색 정확도를 높이려고
+      // 주소 앞부분(시/도 + 시/군/구)까지 같이 검색어에 넣는다.
+      const areaHint = h.address.split(' ').slice(0, 2).join(' ');
+      const searchUrl = `https://search.naver.com/search.naver?query=${encodeURIComponent(h.title + ' ' + areaHint)}`;
       return (
         `<div class="h-card">` +
           badge +
-          `<h4>${h.title}</h4>` +
+          `<h4><a href="${searchUrl}" target="_blank" rel="noopener">${h.title}</a><span class="search-hint">🔍 후기 검색</span></h4>` +
           `<div class="meta">${h.address}</div>` +
           (h.telephone ? `<div class="meta">${h.telephone}</div>` : '') +
           `<div class="dist">약 ${h._dist.toFixed(1)}km</div>` +
