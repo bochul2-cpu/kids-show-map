@@ -217,10 +217,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }} else {{
         badge = `<span class="badge er">🚑 응급실</span>`;
       }}
-      // 이름만으로는 "강남의원"처럼 흔한 이름이 많아서, 검색 정확도를 높이려고
-      // 주소 앞부분(시/도 + 시/군/구)까지 같이 검색어에 넣는다.
-      const areaHint = h.address.split(' ').slice(0, 2).join(' ');
-      const searchUrl = `https://search.naver.com/search.naver?query=${{encodeURIComponent(h.title + ' ' + areaHint)}}`;
+      // 처음엔 주소(시/도+시/군/구)도 검색어에 같이 넣었는데, 오히려 정확한 검색이
+      // 안 되는 경우가 있어서 이름만으로 검색하도록 되돌렸다.
+      const searchUrl = `https://search.naver.com/search.naver?query=${{encodeURIComponent(h.title)}}`;
       return (
         `<div class="h-card">` +
           badge +
