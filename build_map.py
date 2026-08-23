@@ -366,7 +366,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   // 대분류 아이콘 - 마커/칩에서 우선적으로 쓴다
   const CATEGORY_ICONS = {{
     '공연': '🎭', '전시': '🖼️', '축제': '🎪', '나들이·산책': '🌳', '동물원·수족관': '🐾',
-    '체험·놀이': '🙌', '물놀이·찜질방': '💦', '쇼핑몰': '🛍️',
+    '체험·놀이': '🙌', '물놀이·찜질방': '💦', '쇼핑몰': '🛍️', '식당·카페': '🍽️',
   }};
 
   function iconFor(p) {{
@@ -742,7 +742,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     // "전체"를 맨 앞에 두고 기본 선택값으로 삼는다(initChipRow가 첫 항목을 active로 켬).
     // 놀이공원은 컨셉에서 뺐고, 공연·전시는 공연/전시로 나눴다.
     const CATEGORY_ORDER = [
-      '전체', '공연', '전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰', '물놀이·찜질방',
+      '전체', '공연', '전시', '축제', '나들이·산책', '동물원·수족관', '체험·놀이', '쇼핑몰', '물놀이·찜질방', '식당·카페',
     ];
     const presentCategories = new Set(places.map(p => p.category).filter(Boolean));
     const categories = CATEGORY_ORDER
