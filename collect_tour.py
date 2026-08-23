@@ -155,6 +155,8 @@ def build_tour_place(item: dict, category: str, genre_label: str, detail: dict, 
         return None
     if not lat or not lon:
         return None
+    if not (33 <= lat <= 39 and 124 <= lon <= 132):
+        return None  # TourAPI 좌표 데이터 자체가 가끔 틀려서(예: 필리핀 인근 좌표) 한반도 범위로 걸러낸다
 
     if is_festival:
         start_date = fmt_tour_date(detail.get("eventstartdate", ""))
