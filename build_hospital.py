@@ -111,21 +111,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <a class="contact-link" href="https://open.kakao.com/o/gQPB54Ji" target="_blank" rel="noopener">💬 문의하기</a>
     </div>
   </div>
-  <p class="tagline">아이가 아파요? 부천 근교 20km, 지금 갈 수 있는 곳만 보여드려요</p>
+  <p class="tagline">아이가 아파요? 내 위치 기준 20km, 지금 갈 수 있는 곳만 보여드려요</p>
   <div class="tab-row">
     <button type="button" class="tab-btn active" data-cat="소아과">🧒 병원<br>(지금 열린 곳)</button>
     <button type="button" class="tab-btn" data-cat="응급실">🚑 응급실</button>
     <button type="button" class="tab-btn" data-cat="약국">💊 약국</button>
   </div>
   <div class="locate-row">
-    <button type="button" class="locate-btn" id="locateBtn">📍 내 위치에서 가까운 순</button>
+    <button type="button" class="locate-btn" id="locateBtn">📍 내 위치 다시 확인</button>
     <span class="locate-status" id="locateStatus"></span>
   </div>
 </div>
 <div class="list-items" id="listItems"></div>
 <script>
-  const CENTER = [37.5034, 126.7660]; // 부천시청 - 기본 정렬 기준점
-  let refPoint = CENTER;
+  const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 - GPS 거부/실패 시 기본값
+  const FIXED_RADIUS_KM = 20;
+  let refPoint = DEFAULT_CENTER;
   let allHospitals = [];
   let activeCat = '소아과';
 
@@ -191,6 +192,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }}
 
     list = list.map(h => ({{ ...h, _dist: haversineKm(refPoint[0], refPoint[1], h.lat, h.lon) }}));
+    // 데이터 수집 자체는 전국이라(메인 지도와 같은 이유로 넓힘), 화면에서 내 위치
+    // 기준 20km를 벗어난 곳은 걸러낸다.
+    list = list.filter(h => h._dist <= FIXED_RADIUS_KM);
     // 확실한 소아과를 항상 위로 - 같은 등급 안에서는 거리순. 안 그러면 더 가까운
     // (하지만 소아과인지 불확실한) 일반의원이 확실한 소아과보다 위에 뜰 수 있어서 헷갈림.
     const tierOf = h => h.category === '소아과' ? 0 : (h.category === '일반의원' ? 1 : 2);
@@ -244,22 +248,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
   }});
 
-  document.getElementById('locateBtn').addEventListener('click', () => {{
+  function goToCurrentLocation(onDone) {{
     const statusEl = document.getElementById('locateStatus');
     if (!navigator.geolocation) {{
       statusEl.textContent = '위치 기능을 지원하지 않는 브라우저예요';
+      if (onDone) onDone(false);
       return;
     }}
-    statusEl.textContent = '위치 확인 중...';
     navigator.geolocation.getCurrentPosition(
       pos => {{
         refPoint = [pos.coords.latitude, pos.coords.longitude];
-        statusEl.textContent = '내 위치 기준으로 정렬했어요';
+        statusEl.textContent = '내 위치 기준으로 보여드려요';
         render();
+        if (onDone) onDone(true);
       }},
-      () => {{ statusEl.textContent = '위치 정보를 가져올 수 없어요'; }},
+      () => {{
+        statusEl.textContent = '위치 정보를 가져올 수 없어요 (기본 지역 기준으로 보여드려요)';
+        if (onDone) onDone(false);
+      }},
       {{ timeout: 5000 }}
     );
+  }}
+
+  document.getElementById('locateBtn').addEventListener('click', () => {{
+    document.getElementById('locateStatus').textContent = '위치 확인 중...';
+    goToCurrentLocation();
   }});
 
   fetch('data/hospitals.json')
@@ -267,6 +280,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .then(data => {{
       allHospitals = data.hospitals;
       render();
+      goToCurrentLocation(); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
     }})
     .catch(() => {{
       document.getElementById('listItems').innerHTML = '<div class="empty-msg">데이터를 불러오지 못했습니다</div>';
