@@ -82,6 +82,36 @@
   .contact-status.error { color: #c0392b; }
   .contact-status.success { color: #1a8a4a; }
 
+  
+  .admin-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 400; align-items: center; justify-content: center; padding: 16px;
+  }
+  .admin-overlay.open { display: flex; }
+  .admin-modal {
+    background: white; border-radius: 16px; padding: 20px; max-width: 420px; width: 100%;
+    max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+  .admin-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
+  .admin-modal-header h3 { margin: 0; font-size: 15px; color: #333; }
+  .admin-close { background: none; border: none; font-size: 18px; color: #999; cursor: pointer; padding: 4px; line-height: 1; }
+  .admin-login input {
+    width: 100%; border: 1.5px solid #eee; border-radius: 10px; padding: 10px; font-size: 13.5px;
+    margin-bottom: 8px; box-sizing: border-box;
+  }
+  .admin-login button {
+    width: 100%; background: #333; color: white; border: none; border-radius: 10px;
+    padding: 10px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .admin-login-error { font-size: 12px; color: #c0392b; margin: 6px 0 0; min-height: 14px; }
+  .admin-list { overflow-y: auto; flex: 1; }
+  .admin-list-empty { color: #bbb; font-size: 13px; text-align: center; padding: 30px 0; }
+  .admin-item { border-bottom: 1px solid #f0f0f0; padding: 10px 0; }
+  .admin-item:last-child { border-bottom: none; }
+  .admin-item .admin-item-message { font-size: 13.5px; color: #333; white-space: pre-wrap; margin-bottom: 4px; }
+  .admin-item .admin-item-meta { font-size: 11px; color: #aaa; }
+  .admin-logout { background: none; border: none; color: #999; font-size: 11.5px; cursor: pointer; padding: 4px 0; flex-shrink: 0; text-align: right; }
+
   .topbar-toggle {
     display: none; flex-shrink: 0; background: none; border: none; color: #bbb;
     font-size: 13px; padding: 4px 8px; cursor: pointer;
@@ -315,7 +345,7 @@
 
   const map = new naver.maps.Map('map', {
     zoom: 12,
-    minZoom: 11,
+    minZoom: 12,
     center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
     maxBounds: computeMaxBounds(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
   });
@@ -656,6 +686,12 @@
     if (cat) filtered = filtered.filter(p => p.category === cat);
     filtered = withinRadius(filtered);
     filtered = filtered.filter(withinThisWeekend);
+    // 목록은 지금 보이는(필터링된) 것들 안에서 가까운 순으로 - 매번 다시 계산해도
+    // 몇백 건 수준이라 성능에 문제없다.
+    filtered = filtered.slice().sort((a, b) =>
+      haversineKm(currentCenter[0], currentCenter[1], a.lat, a.lon) -
+      haversineKm(currentCenter[0], currentCenter[1], b.lat, b.lon)
+    );
 
     renderMarkers(filtered);
     renderList(filtered);
@@ -724,7 +760,9 @@
       value: c === '전체' ? '' : c,
       label: c === '전체' ? '전체' : (CATEGORY_ICONS[c] || '🎫') + ' ' + c,
     }));
-    initChipRow(document.getElementById('catChipRow'), catItems);
+    initChipRow(document.getElementById('catChipRow'), catItems, value => {
+      if (window.__handleSecretChipClick) window.__handleSecretChipClick(value);
+    });
   }
 
   // 지도를 GPS 위치로 옮겨도 "정확히 어디가 내 위치인지" 표시가 없으면 화면 가운데를
@@ -880,6 +918,134 @@
       submitBtn.disabled = false;
     }
   });
+</script>
+
+
+<div class="admin-overlay" id="adminOverlay">
+  <div class="admin-modal">
+    <div class="admin-modal-header">
+      <h3 id="adminModalTitle">관리자 로그인</h3>
+      <button type="button" class="admin-close" id="adminCloseBtn">✕</button>
+    </div>
+    <div class="admin-login" id="adminLoginView">
+      <input type="email" id="adminEmailInput" placeholder="이메일" autocomplete="username">
+      <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="current-password">
+      <button type="button" id="adminLoginBtn">로그인</button>
+      <p class="admin-login-error" id="adminLoginError"></p>
+    </div>
+    <div class="admin-list" id="adminListView" style="display:none;"></div>
+    <button type="button" class="admin-logout" id="adminLogoutBtn" style="display:none;">로그아웃</button>
+  </div>
+</div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+  import {
+    getFirestore, collection, getDocs, query, orderBy,
+  } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+  const adminApp = initializeApp({"apiKey": "AIzaSyDrI4N4e1zh8HyoElmGTtFjWWqxT_D3qWY", "authDomain": "my-apps-hub-6ec61.firebaseapp.com", "projectId": "my-apps-hub-6ec61", "storageBucket": "my-apps-hub-6ec61.firebasestorage.app", "messagingSenderId": "436032614068", "appId": "1:436032614068:web:d34d075f0e85e6132831e1"}, 'adminApp');
+  const adminAuth = getAuth(adminApp);
+  const adminDb = getFirestore(adminApp);
+
+  const SECRET_SEQUENCE = ["공연", "공연", "공연", "전시", "전시", "전시", "축제", "축제", "축제", "축제", "축제", "축제", "축제"];
+  let secretLog = [];
+  function handleSecretChipClick(value) {
+    secretLog.push(value);
+    if (secretLog.length > SECRET_SEQUENCE.length) secretLog.shift();
+    if (secretLog.length === SECRET_SEQUENCE.length && secretLog.every((v, i) => v === SECRET_SEQUENCE[i])) {
+      secretLog = [];
+      openAdminPanel();
+    }
+  }
+  window.__handleSecretChipClick = handleSecretChipClick;
+
+  const overlay = document.getElementById('adminOverlay');
+  const closeBtn = document.getElementById('adminCloseBtn');
+  const loginView = document.getElementById('adminLoginView');
+  const listView = document.getElementById('adminListView');
+  const logoutBtn = document.getElementById('adminLogoutBtn');
+  const emailInput = document.getElementById('adminEmailInput');
+  const passwordInput = document.getElementById('adminPasswordInput');
+  const loginBtn = document.getElementById('adminLoginBtn');
+  const loginError = document.getElementById('adminLoginError');
+  const modalTitle = document.getElementById('adminModalTitle');
+
+  function openAdminPanel() {
+    overlay.classList.add('open');
+    if (adminAuth.currentUser) {
+      showList();
+    } else {
+      showLogin();
+    }
+  }
+  function closeAdminPanel() { overlay.classList.remove('open'); }
+  closeBtn.addEventListener('click', closeAdminPanel);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeAdminPanel(); });
+
+  function showLogin() {
+    modalTitle.textContent = '관리자 로그인';
+    loginView.style.display = '';
+    listView.style.display = 'none';
+    logoutBtn.style.display = 'none';
+    loginError.textContent = '';
+  }
+
+  function showList() {
+    modalTitle.textContent = '받은 문의';
+    loginView.style.display = 'none';
+    listView.style.display = '';
+    logoutBtn.style.display = '';
+    loadInquiries();
+  }
+
+  loginBtn.addEventListener('click', async () => {
+    loginError.textContent = '';
+    try {
+      await signInWithEmailAndPassword(adminAuth, emailInput.value.trim(), passwordInput.value);
+      passwordInput.value = '';
+      showList();
+    } catch (e) {
+      loginError.textContent = '로그인 실패 - 이메일/비밀번호를 확인해주세요';
+    }
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await signOut(adminAuth);
+    closeAdminPanel();
+  });
+
+  function fmtDate(ts) {
+    if (!ts || !ts.toDate) return '';
+    const d = ts.toDate();
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  async function loadInquiries() {
+    listView.innerHTML = '<p class="admin-list-empty">불러오는 중...</p>';
+    try {
+      const q = query(collection(adminDb, 'inquiries'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        listView.innerHTML = '<p class="admin-list-empty">아직 문의가 없어요</p>';
+        return;
+      }
+      listView.innerHTML = snap.docs.map(doc => {
+        const d = doc.data();
+        const reply = d.reply ? ` · 연락처: ${d.reply}` : '';
+        return (
+          '<div class="admin-item">' +
+            `<div class="admin-item-message">${(d.message || '').replace(/</g, '&lt;')}</div>` +
+            `<div class="admin-item-meta">${fmtDate(d.createdAt)} · ${d.source || ''}${reply}</div>` +
+          '</div>'
+        );
+      }).join('');
+    } catch (e) {
+      listView.innerHTML = '<p class="admin-list-empty">불러오지 못했어요</p>';
+    }
+  }
 </script>
 
 </body>

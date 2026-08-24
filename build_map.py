@@ -22,6 +22,7 @@ from datetime import date, timedelta
 
 from settings import MAP_OUTPUT_PATH, GA_MEASUREMENT_ID, DATA_PATH
 from contact_widget import render_contact_widget
+from admin_widget import render_admin_widget
 from config import NAVER_MAP_CLIENT_ID
 
 BUCHEON_CENTER = (37.5034, 126.7660)
@@ -145,6 +146,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .contact-link:hover {{ background: #fff1ea; }}
   {contact_widget_css}
+  {admin_widget_css}
   .topbar-toggle {{
     display: none; flex-shrink: 0; background: none; border: none; color: #bbb;
     font-size: 13px; padding: 4px 8px; cursor: pointer;
@@ -378,7 +380,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   const map = new naver.maps.Map('map', {{
     zoom: 12,
-    minZoom: 11,
+    minZoom: 12,
     center: new naver.maps.LatLng(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
     maxBounds: computeMaxBounds(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
   }});
@@ -719,6 +721,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     if (cat) filtered = filtered.filter(p => p.category === cat);
     filtered = withinRadius(filtered);
     filtered = filtered.filter(withinThisWeekend);
+    // 목록은 지금 보이는(필터링된) 것들 안에서 가까운 순으로 - 매번 다시 계산해도
+    // 몇백 건 수준이라 성능에 문제없다.
+    filtered = filtered.slice().sort((a, b) =>
+      haversineKm(currentCenter[0], currentCenter[1], a.lat, a.lon) -
+      haversineKm(currentCenter[0], currentCenter[1], b.lat, b.lon)
+    );
 
     renderMarkers(filtered);
     renderList(filtered);
@@ -787,7 +795,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       value: c === '전체' ? '' : c,
       label: c === '전체' ? '전체' : (CATEGORY_ICONS[c] || '🎫') + ' ' + c,
     }}));
-    initChipRow(document.getElementById('catChipRow'), catItems);
+    initChipRow(document.getElementById('catChipRow'), catItems, value => {{
+      if (window.__handleSecretChipClick) window.__handleSecretChipClick(value);
+    }});
   }}
 
   // 지도를 GPS 위치로 옮겨도 "정확히 어디가 내 위치인지" 표시가 없으면 화면 가운데를
@@ -871,6 +881,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }});
 </script>
 {contact_widget_block}
+{admin_widget_block}
 </body>
 </html>
 """
@@ -878,12 +889,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 def main():
     contact_widget = render_contact_widget(accent_color="#ff7a50", page_source="가볼까")
+    admin_widget = render_admin_widget()
     html = HTML_TEMPLATE.format(
         naver_map_client_id=NAVER_MAP_CLIENT_ID,
         ga_measurement_id=GA_MEASUREMENT_ID,
         seo_snapshot=_seo_snapshot_html(),
         contact_widget_css=contact_widget["css"],
         contact_widget_block=contact_widget["block"],
+        admin_widget_css=admin_widget["css"],
+        admin_widget_block=admin_widget["block"],
     )
     with open(MAP_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
