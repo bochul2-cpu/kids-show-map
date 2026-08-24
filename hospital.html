@@ -91,6 +91,35 @@
   }
   .call-btn { background: #e0507a; color: white; }
   .directions-btn { background: #fff0f4; color: #c0392b; }
+  
+  .contact-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 300; align-items: center; justify-content: center; padding: 16px;
+  }
+  .contact-overlay.open { display: flex; }
+  .contact-modal {
+    background: white; border-radius: 16px; padding: 20px; max-width: 360px; width: 100%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  }
+  .contact-modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .contact-modal-header h3 { margin: 0; font-size: 16px; color: #333; }
+  .contact-close { background: none; border: none; font-size: 18px; color: #999; cursor: pointer; padding: 4px; line-height: 1; }
+  .contact-modal-desc { font-size: 12.5px; color: #888; margin: 0 0 12px; line-height: 1.5; }
+  .contact-modal textarea, .contact-modal input {
+    width: 100%; border: 1.5px solid #eee; border-radius: 10px; padding: 10px; font-size: 13.5px;
+    font-family: inherit; margin-bottom: 8px; box-sizing: border-box; resize: vertical;
+  }
+  .contact-modal textarea:focus, .contact-modal input:focus { outline: none; border-color: #e0507a; }
+  .contact-modal-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+  .contact-submit {
+    background: #e0507a; color: white; border: none; border-radius: 10px; padding: 9px 18px;
+    font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .contact-submit:disabled { opacity: 0.5; cursor: default; }
+  .contact-status { font-size: 12px; color: #888; margin: 8px 0 0; min-height: 16px; }
+  .contact-status.error { color: #c0392b; }
+  .contact-status.success { color: #1a8a4a; }
+
 </style>
 </head>
 <body>
@@ -99,7 +128,7 @@
     <div class="brand"><span class="logo">🏥</span><h1>아이랑 병원</h1></div>
     <div class="header-actions">
       <a class="nav-link" href="index.html">🧸 가볼까</a>
-      <a class="contact-link" href="https://open.kakao.com/o/gQPB54Ji" target="_blank" rel="noopener">💬 문의하기</a>
+      <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
     </div>
   </div>
   <p class="tagline">아이가 아파요? 내 위치 기준 20km, 지금 갈 수 있는 곳만 보여드려요</p>
@@ -277,5 +306,80 @@
       document.getElementById('listItems').innerHTML = '<div class="empty-msg">데이터를 불러오지 못했습니다</div>';
     });
 </script>
+
+<div class="contact-overlay" id="contactOverlay">
+  <div class="contact-modal">
+    <div class="contact-modal-header">
+      <h3>문의하기</h3>
+      <button type="button" class="contact-close" id="contactCloseBtn">✕</button>
+    </div>
+    <p class="contact-modal-desc">불편한 점, 잘못된 정보, 추가됐으면 하는 기능 등 편하게 남겨주세요.</p>
+    <textarea id="contactMessageInput" rows="5" placeholder="문의 내용을 입력해주세요"></textarea>
+    <input type="text" id="contactReplyInput" placeholder="답장 받을 연락처(선택, 이메일/전화번호)">
+    <div class="contact-modal-actions">
+      <button type="button" class="contact-submit" id="contactSubmitBtn">보내기</button>
+    </div>
+    <p class="contact-status" id="contactStatusText"></p>
+  </div>
+</div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+  const firebaseApp = initializeApp({"apiKey": "AIzaSyDrI4N4e1zh8HyoElmGTtFjWWqxT_D3qWY", "authDomain": "my-apps-hub-6ec61.firebaseapp.com", "projectId": "my-apps-hub-6ec61", "storageBucket": "my-apps-hub-6ec61.firebasestorage.app", "messagingSenderId": "436032614068", "appId": "1:436032614068:web:d34d075f0e85e6132831e1"});
+  const db = getFirestore(firebaseApp);
+
+  const overlay = document.getElementById('contactOverlay');
+  const openBtn = document.getElementById('contactOpenBtn');
+  const closeBtn = document.getElementById('contactCloseBtn');
+  const submitBtn = document.getElementById('contactSubmitBtn');
+  const messageInput = document.getElementById('contactMessageInput');
+  const replyInput = document.getElementById('contactReplyInput');
+  const statusText = document.getElementById('contactStatusText');
+
+  function openModal() {
+    overlay.classList.add('open');
+    statusText.textContent = '';
+    statusText.className = 'contact-status';
+    messageInput.focus();
+  }
+  function closeModal() { overlay.classList.remove('open'); }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  submitBtn.addEventListener('click', async () => {
+    const message = messageInput.value.trim();
+    if (!message) {
+      statusText.textContent = '문의 내용을 입력해주세요';
+      statusText.className = 'contact-status error';
+      return;
+    }
+    submitBtn.disabled = true;
+    statusText.textContent = '보내는 중...';
+    statusText.className = 'contact-status';
+    try {
+      await addDoc(collection(db, 'inquiries'), {
+        message,
+        reply: replyInput.value.trim(),
+        source: '병원',
+        createdAt: serverTimestamp(),
+        userAgent: navigator.userAgent,
+      });
+      statusText.textContent = '문의가 접수됐어요. 감사합니다!';
+      statusText.className = 'contact-status success';
+      messageInput.value = '';
+      replyInput.value = '';
+      setTimeout(closeModal, 1500);
+    } catch (e) {
+      statusText.textContent = '전송에 실패했어요. 잠시 후 다시 시도해주세요.';
+      statusText.className = 'contact-status error';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+
 </body>
 </html>

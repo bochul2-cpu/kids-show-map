@@ -21,6 +21,7 @@ import math
 from datetime import date, timedelta
 
 from settings import MAP_OUTPUT_PATH, GA_MEASUREMENT_ID, DATA_PATH
+from contact_widget import render_contact_widget
 from config import NAVER_MAP_CLIENT_ID
 
 BUCHEON_CENTER = (37.5034, 126.7660)
@@ -143,6 +144,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border: 1.5px solid #ffcbb0; border-radius: 14px; padding: 5px 11px; white-space: nowrap;
   }}
   .contact-link:hover {{ background: #fff1ea; }}
+  {contact_widget_css}
   .topbar-toggle {{
     display: none; flex-shrink: 0; background: none; border: none; color: #bbb;
     font-size: 13px; padding: 4px 8px; cursor: pointer;
@@ -306,6 +308,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .prf-popup dt {{ width: 34px; }}
     .prf-popup dd {{ margin-left: 38px; }}
     .prf-popup .btn-row a, .prf-popup .btn-row button {{ font-size: 11px; padding: 5px 0; }}
+    .header-actions {{ flex-wrap: wrap; }}
   }}
 </style>
 </head>
@@ -315,7 +318,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">부천 사는 아빠가 만든 주말 나들이 지도</span></div>
     <div class="header-actions">
       <a class="contact-link" href="hospital.html">🏥 아이가 아파요</a>
-      <a class="contact-link" href="https://open.kakao.com/o/gQPB54Ji" target="_blank" rel="noopener">💬 문의하기</a>
+      <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
+      <a class="contact-link" href="https://my-apps-hub-6ec61.web.app" target="_blank" rel="noopener">🎮 미니게임</a>
       <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
     </div>
   </div>
@@ -866,16 +870,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       document.getElementById('countText').textContent = '데이터를 불러오지 못했습니다';
     }});
 </script>
+{contact_widget_block}
 </body>
 </html>
 """
 
 
 def main():
+    contact_widget = render_contact_widget(accent_color="#ff7a50", page_source="가볼까")
     html = HTML_TEMPLATE.format(
         naver_map_client_id=NAVER_MAP_CLIENT_ID,
         ga_measurement_id=GA_MEASUREMENT_ID,
         seo_snapshot=_seo_snapshot_html(),
+        contact_widget_css=contact_widget["css"],
+        contact_widget_block=contact_widget["block"],
     )
     with open(MAP_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)

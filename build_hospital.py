@@ -4,6 +4,7 @@
 항상 전체를 보여준다(전화로 확인하고 가는 게 맞는 영역이라 필터링하지 않는다).
 """
 from settings import GA_MEASUREMENT_ID
+from contact_widget import render_contact_widget
 
 HOSPITAL_OUTPUT_PATH = "hospital.html"
 
@@ -100,6 +101,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   }}
   .call-btn {{ background: #e0507a; color: white; }}
   .directions-btn {{ background: #fff0f4; color: #c0392b; }}
+  {contact_widget_css}
 </style>
 </head>
 <body>
@@ -108,7 +110,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="brand"><span class="logo">🏥</span><h1>아이랑 병원</h1></div>
     <div class="header-actions">
       <a class="nav-link" href="index.html">🧸 가볼까</a>
-      <a class="contact-link" href="https://open.kakao.com/o/gQPB54Ji" target="_blank" rel="noopener">💬 문의하기</a>
+      <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
     </div>
   </div>
   <p class="tagline">아이가 아파요? 내 위치 기준 20km, 지금 갈 수 있는 곳만 보여드려요</p>
@@ -286,13 +288,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       document.getElementById('listItems').innerHTML = '<div class="empty-msg">데이터를 불러오지 못했습니다</div>';
     }});
 </script>
+{contact_widget_block}
 </body>
 </html>
 """
 
 
 def main():
-    html = HTML_TEMPLATE.format(ga_measurement_id=GA_MEASUREMENT_ID)
+    contact_widget = render_contact_widget(accent_color="#e0507a", page_source="병원")
+    html = HTML_TEMPLATE.format(
+        ga_measurement_id=GA_MEASUREMENT_ID,
+        contact_widget_css=contact_widget["css"],
+        contact_widget_block=contact_widget["block"],
+    )
     with open(HOSPITAL_OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"병원 페이지 생성 완료 -> {HOSPITAL_OUTPUT_PATH}")

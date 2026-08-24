@@ -265,6 +265,8 @@ def collect_tour_places() -> list[dict]:
     # 하나뿐). 몰/마트 이름이 제목 맨 앞에 오는 것만 실제 그 장소이고, 브랜드명이
     # 앞에 붙은 건 안에 입점한 매장이라 title이 검색어로 시작하는 것만 남긴다.
     # 이마트24/홈플러스 익스프레스처럼 완전히 다른 소형 편의점 포맷도 같이 걸려서 뺀다.
+    # "롯데프리미엄아울렛 의왕점[면세점(TAX REFUND SHOP)]"처럼 같은 건물의 면세점
+    # 코너가 본점과 별도 항목으로 또 잡히는 경우가 있어(내용 완전 중복) 같이 뺀다.
     PRIORITY_KEYWORD_EXCLUDE = ["이마트24", "홈플러스 익스프레스"]
     for category, keyword in TOUR_PRIORITY_KEYWORD_TARGETS:
         try:
@@ -277,6 +279,8 @@ def collect_tour_places() -> list[dict]:
             if not title.startswith(keyword):
                 continue
             if any(title.startswith(ex) for ex in PRIORITY_KEYWORD_EXCLUDE):
+                continue
+            if "면세점" in title:
                 continue
             area_code = item.get("areacode", "")
             region_group = region_group_from_area(area_code) if area_code else "기타"
