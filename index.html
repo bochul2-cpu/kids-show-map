@@ -927,12 +927,12 @@
       <h3 id="adminModalTitle">관리자 로그인</h3>
       <button type="button" class="admin-close" id="adminCloseBtn">✕</button>
     </div>
-    <div class="admin-login" id="adminLoginView">
-      <input type="email" id="adminEmailInput" placeholder="이메일" autocomplete="username">
-      <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="current-password">
-      <button type="button" id="adminLoginBtn">로그인</button>
+    <form class="admin-login" id="adminLoginView">
+      <input type="email" id="adminEmailInput" value="bochul1@naver.com" autocomplete="username" style="display:none;" aria-hidden="true" tabindex="-1">
+      <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="current-password" autofocus>
+      <button type="submit" id="adminLoginBtn">로그인</button>
       <p class="admin-login-error" id="adminLoginError"></p>
-    </div>
+    </form>
     <div class="admin-list" id="adminListView" style="display:none;"></div>
     <button type="button" class="admin-logout" id="adminLogoutBtn" style="display:none;">로그아웃</button>
   </div>
@@ -946,6 +946,7 @@
     getFirestore, collection, getDocs, query, orderBy,
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
+  const ADMIN_EMAIL = "bochul1@naver.com";
   const adminApp = initializeApp({"apiKey": "AIzaSyDrI4N4e1zh8HyoElmGTtFjWWqxT_D3qWY", "authDomain": "my-apps-hub-6ec61.firebaseapp.com", "projectId": "my-apps-hub-6ec61", "storageBucket": "my-apps-hub-6ec61.firebasestorage.app", "messagingSenderId": "436032614068", "appId": "1:436032614068:web:d34d075f0e85e6132831e1"}, 'adminApp');
   const adminAuth = getAuth(adminApp);
   const adminDb = getFirestore(adminApp);
@@ -964,12 +965,10 @@
 
   const overlay = document.getElementById('adminOverlay');
   const closeBtn = document.getElementById('adminCloseBtn');
-  const loginView = document.getElementById('adminLoginView');
+  const loginForm = document.getElementById('adminLoginView');
   const listView = document.getElementById('adminListView');
   const logoutBtn = document.getElementById('adminLogoutBtn');
-  const emailInput = document.getElementById('adminEmailInput');
   const passwordInput = document.getElementById('adminPasswordInput');
-  const loginBtn = document.getElementById('adminLoginBtn');
   const loginError = document.getElementById('adminLoginError');
   const modalTitle = document.getElementById('adminModalTitle');
 
@@ -987,7 +986,7 @@
 
   function showLogin() {
     modalTitle.textContent = '관리자 로그인';
-    loginView.style.display = '';
+    loginForm.style.display = '';
     listView.style.display = 'none';
     logoutBtn.style.display = 'none';
     loginError.textContent = '';
@@ -995,20 +994,21 @@
 
   function showList() {
     modalTitle.textContent = '받은 문의';
-    loginView.style.display = 'none';
+    loginForm.style.display = 'none';
     listView.style.display = '';
     logoutBtn.style.display = '';
     loadInquiries();
   }
 
-  loginBtn.addEventListener('click', async () => {
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
     loginError.textContent = '';
     try {
-      await signInWithEmailAndPassword(adminAuth, emailInput.value.trim(), passwordInput.value);
+      await signInWithEmailAndPassword(adminAuth, ADMIN_EMAIL, passwordInput.value);
       passwordInput.value = '';
       showList();
     } catch (e) {
-      loginError.textContent = '로그인 실패 - 이메일/비밀번호를 확인해주세요';
+      loginError.textContent = '로그인 실패 - 비밀번호를 확인해주세요';
     }
   });
 

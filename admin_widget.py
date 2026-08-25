@@ -9,6 +9,12 @@ request.auth != null(로그인 여부)로 건다. 로그인 안 하면 개발자
 """
 import json
 
+# 매번 이메일까지 치기 귀찮다는 요청으로, 로그인 화면엔 비밀번호만 보이게 하고
+# 이메일은 여기 고정값으로 넣어둔다. 이메일 자체는 비밀값이 아니라(로그인 성공
+# 여부를 가르는 건 비밀번호 쪽) 코드에 그대로 노출돼도 안전하다 - 실제 접근 제어는
+# Firestore 규칙의 request.auth != null 이 한다.
+ADMIN_EMAIL = "bochul1@naver.com"
+
 FIREBASE_CONFIG = {
     "apiKey": "AIzaSyDrI4N4e1zh8HyoElmGTtFjWWqxT_D3qWY",
     "authDomain": "my-apps-hub-6ec61.firebaseapp.com",
@@ -26,6 +32,8 @@ SECRET_SEQUENCE = ["공연"] * 3 + ["전시"] * 3 + ["축제"] * 7
 def render_admin_widget() -> str:
     secret_sequence_json = json.dumps(SECRET_SEQUENCE, ensure_ascii=False)
     firebase_config_json = json.dumps(FIREBASE_CONFIG)
+    admin_email_json = json.dumps(ADMIN_EMAIL)
+    admin_email = ADMIN_EMAIL
 
     css = """
   .admin-overlay {
@@ -65,12 +73,12 @@ def render_admin_widget() -> str:
       <h3 id="adminModalTitle">관리자 로그인</h3>
       <button type="button" class="admin-close" id="adminCloseBtn">✕</button>
     </div>
-    <div class="admin-login" id="adminLoginView">
-      <input type="email" id="adminEmailInput" placeholder="이메일" autocomplete="username">
-      <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="current-password">
-      <button type="button" id="adminLoginBtn">로그인</button>
+    <form class="admin-login" id="adminLoginView">
+      <input type="email" id="adminEmailInput" value="{admin_email}" autocomplete="username" style="display:none;" aria-hidden="true" tabindex="-1">
+      <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="current-password" autofocus>
+      <button type="submit" id="adminLoginBtn">로그인</button>
       <p class="admin-login-error" id="adminLoginError"></p>
-    </div>
+    </form>
     <div class="admin-list" id="adminListView" style="display:none;"></div>
     <button type="button" class="admin-logout" id="adminLogoutBtn" style="display:none;">로그아웃</button>
   </div>
@@ -84,6 +92,7 @@ def render_admin_widget() -> str:
     getFirestore, collection, getDocs, query, orderBy,
   }} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
+  const ADMIN_EMAIL = {admin_email_json};
   const adminApp = initializeApp({firebase_config_json}, 'adminApp');
   const adminAuth = getAuth(adminApp);
   const adminDb = getFirestore(adminApp);
@@ -102,12 +111,10 @@ def render_admin_widget() -> str:
 
   const overlay = document.getElementById('adminOverlay');
   const closeBtn = document.getElementById('adminCloseBtn');
-  const loginView = document.getElementById('adminLoginView');
+  const loginForm = document.getElementById('adminLoginView');
   const listView = document.getElementById('adminListView');
   const logoutBtn = document.getElementById('adminLogoutBtn');
-  const emailInput = document.getElementById('adminEmailInput');
   const passwordInput = document.getElementById('adminPasswordInput');
-  const loginBtn = document.getElementById('adminLoginBtn');
   const loginError = document.getElementById('adminLoginError');
   const modalTitle = document.getElementById('adminModalTitle');
 
@@ -125,7 +132,7 @@ def render_admin_widget() -> str:
 
   function showLogin() {{
     modalTitle.textContent = '관리자 로그인';
-    loginView.style.display = '';
+    loginForm.style.display = '';
     listView.style.display = 'none';
     logoutBtn.style.display = 'none';
     loginError.textContent = '';
@@ -133,20 +140,21 @@ def render_admin_widget() -> str:
 
   function showList() {{
     modalTitle.textContent = '받은 문의';
-    loginView.style.display = 'none';
+    loginForm.style.display = 'none';
     listView.style.display = '';
     logoutBtn.style.display = '';
     loadInquiries();
   }}
 
-  loginBtn.addEventListener('click', async () => {{
+  loginForm.addEventListener('submit', async (e) => {{
+    e.preventDefault();
     loginError.textContent = '';
     try {{
-      await signInWithEmailAndPassword(adminAuth, emailInput.value.trim(), passwordInput.value);
+      await signInWithEmailAndPassword(adminAuth, ADMIN_EMAIL, passwordInput.value);
       passwordInput.value = '';
       showList();
     }} catch (e) {{
-      loginError.textContent = '로그인 실패 - 이메일/비밀번호를 확인해주세요';
+      loginError.textContent = '로그인 실패 - 비밀번호를 확인해주세요';
     }}
   }});
 
