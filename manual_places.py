@@ -145,6 +145,32 @@ MANUAL_PLACES = [
     # 확인해서 넣음. 공통 검색 키워드로 묶기 애매한 개별 시설들이라(각자 고유 이름이라
     # 전국 검색으로 자동 발견이 안 됨) 수동 등록한다.
     {
+        # "유아숲체험원"을 전국 검색 키워드로 추가한 뒤에도(2026-08-26), 이 지역에
+        # 결과가 많아서인지 상위 5건 안에 안 들어와 자동으로는 안 잡혔다.
+        "id": "manual_ara_forest",
+        "type": "place",
+        "category": "나들이·산책",
+        "genre": "관람,체험",
+        "is_child": True,
+        "title": "아라유아숲체험원",
+        "start_date": "2000.01.01",
+        "end_date": "2099.12.31",
+        "venue": "아라유아숲체험원",
+        "address": "인천광역시 검단구 아라로105번길 17",
+        "region_group": "수도권",
+        "lat": 37.5740511,
+        "lon": 126.6885099,
+        "age": "",
+        "price": "",
+        "runtime": "",
+        "schedule": "",
+        "poster": "",
+        "link": "https://search.naver.com/search.naver?query=%EC%95%84%EB%9D%BC%EC%9C%A0%EC%95%84%EC%88%B2%EC%B2%B4%ED%97%98%EC%9B%90",
+        "telephone": "",
+        "approx_location": False,
+        "amenities": [],
+    },
+    {
         "id": "manual_dreampark_wildflower",
         "type": "place",
         "category": "나들이·산책",
