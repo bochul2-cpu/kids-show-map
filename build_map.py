@@ -321,7 +321,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="header-actions">
       <a class="contact-link" href="hospital.html">🏥 아이가 아파요</a>
       <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
-      <a class="contact-link" href="https://my-apps-hub-6ec61.web.app" target="_blank" rel="noopener">🎮 미니게임</a>
+      <a class="contact-link" href="https://spacebug-arcade.web.app" target="_blank" rel="noopener">🎮 미니게임</a>
       <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
     </div>
   </div>
