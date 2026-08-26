@@ -21,6 +21,7 @@ from settings import (
     LOCAL_SEARCH_EXCLUDE_CATEGORY_PREFIXES,
     LOCAL_SEARCH_EXCLUDE_GENRES,
     LOCAL_WATER_JJIM_ALLOWED_GENRES,
+    LOCAL_MUSEUM_ALLOWED_GENRES,
     LOCAL_DATA_PATH,
 )
 from config import NAVER_HEADERS
@@ -75,6 +76,8 @@ def build_local_place(item: dict, category: str, existing_titles: set[str]) -> d
     title = strip_tags(item.get("title", ""))
     if title.startswith("주식회사") or title.startswith("(주)"):
         return None  # 소비자 대상 장소명이 아니라 법인 등기명 그대로인 항목 - 보통 같은 곳의 다른(정상) 이름으로 이미 잡혀있다
+    if "예정" in title:
+        return None  # "인천시립미술관(2028년예정)"처럼 아직 개관 전인 시설 - "오늘 갈 곳" 컨셉과 안 맞음
 
     norm = normalize_title(title)
     # 정확히 같은 제목이 아니어도(예: "씨랄라워터파크&찜질방" vs "씨랄라 워터파크")
@@ -90,6 +93,11 @@ def build_local_place(item: dict, category: str, existing_titles: set[str]) -> d
         # 워터파크/찜질방이 있는 큰 건물 안에 입점한 무관한 업체(은행/광고대행 등)까지
         # 상호명에 건물 이름이 그대로 들어가서 제목 기반 우회는 여기선 안 쓴다.
         if genre not in LOCAL_WATER_JJIM_ALLOWED_GENRES:
+            return None
+    elif category == "전시":
+        # "한돈박물관"(식당), "그날의미술관"(사진관)처럼 이름만 박물관/미술관인
+        # 무관 업종이 섞여 들어와서 물놀이·찜질방과 같은 화이트리스트 방식을 쓴다.
+        if genre not in LOCAL_MUSEUM_ALLOWED_GENRES:
             return None
     else:
         # genre가 무관한 업종이어도, 제목 자체에 우리가 찾던 테마 키워드가 그대로
