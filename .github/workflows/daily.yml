@@ -35,6 +35,7 @@ jobs:
       - run: python collect.py
       - run: python collect_tour.py
       - run: python collect_local.py
+      - run: python manual_places.py
       - run: python collect_hospital.py
       - run: python build_map.py
       - run: python build_hospital.py
