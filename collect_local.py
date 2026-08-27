@@ -22,6 +22,7 @@ from settings import (
     LOCAL_SEARCH_EXCLUDE_GENRES,
     LOCAL_WATER_JJIM_ALLOWED_GENRES,
     LOCAL_MUSEUM_ALLOWED_GENRES,
+    LOCAL_SEARCH_HARD_EXCLUDE_GENRES,
     LOCAL_DATA_PATH,
 )
 from config import NAVER_HEADERS
@@ -100,6 +101,11 @@ def build_local_place(item: dict, category: str, existing_titles: set[str]) -> d
         if genre not in LOCAL_MUSEUM_ALLOWED_GENRES:
             return None
     else:
+        # "OO안전체험관 주차장"/"OO안전체험관 전기차충전소"처럼 부속시설 이름에
+        # 본체 시설명이 그대로 들어가는 경우가 있어, 이런 건 제목 우회 규칙보다
+        # 먼저 무조건 걸러야 한다(아래 title_has_theme_keyword 예외가 적용되면 안 됨).
+        if genre in LOCAL_SEARCH_HARD_EXCLUDE_GENRES:
+            return None
         # genre가 무관한 업종이어도, 제목 자체에 우리가 찾던 테마 키워드가 그대로
         # 들어있으면(예: "헬로슬라임카페"인데 category가 엉뚱하게 "한식"으로 잡힌 경우) 살린다.
         title_has_theme_keyword = any(kw in title for kw in _ALL_KEYWORDS)
