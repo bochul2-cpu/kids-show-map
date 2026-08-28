@@ -95,8 +95,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>아이랑 가볼까 - 부천·인천 아이와 갈만한 곳, 주말 나들이 정보</title>
-<meta name="description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천·인천 근교 20km, 오늘부터 이번 주말까지 아이와 갈만한 공연·전시·나들이·체험·물놀이 정보">
+<title>아이랑 가볼까 - 내 주변 20km, 아이와 갈만한 곳 나들이 정보</title>
+<meta name="description" content="아빠가 만든 나들이 지도 - 전국 어디서나 내 위치 기준 20km, 오늘부터 이번 주말까지 아이와 갈만한 공연·전시·나들이·체험·물놀이 정보">
 <meta name="naver-site-verification" content="de7dc588a61ea54a070dad24ad125b83ad93414c" />
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff7a50">
@@ -111,7 +111,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
      결정됨) 앱 전체 기준의 고정 카드만 가능하다. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="아이랑 가볼까">
-<meta property="og:description" content="부천 사는 아빠가 만든 주말 나들이 지도 - 부천 근교 20km, 오늘부터 이번 주말까지">
+<meta property="og:description" content="아빠가 만든 나들이 지도 - 전국 어디서나 내 위치 기준 20km, 오늘부터 이번 주말까지">
 <meta property="og:image" content="https://bucheonkids.com/icons/og-image.png">
 <meta property="og:url" content="https://bucheonkids.com/">
 <meta name="twitter:card" content="summary_large_image">
@@ -317,7 +317,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar" id="topbar">
   <div class="topbar-header">
-    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">부천 사는 아빠가 만든 주말 나들이 지도</span></div>
+    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">전국 어디서나, 내 위치 기준 20km 나들이 지도</span></div>
     <div class="header-actions">
       <a class="contact-link" href="hospital.html">🏥 아이가 아파요</a>
       <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
