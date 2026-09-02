@@ -267,7 +267,9 @@ def collect_tour_places() -> list[dict]:
     # 이마트24/홈플러스 익스프레스처럼 완전히 다른 소형 편의점 포맷도 같이 걸려서 뺀다.
     # "롯데프리미엄아울렛 의왕점[면세점(TAX REFUND SHOP)]"처럼 같은 건물의 면세점
     # 코너가 본점과 별도 항목으로 또 잡히는 경우가 있어(내용 완전 중복) 같이 뺀다.
-    PRIORITY_KEYWORD_EXCLUDE = ["이마트24", "홈플러스 익스프레스"]
+    # "서울숲팜프라자약국"처럼 "서울숲"으로 시작하는 무관 업체(약국)도 startswith 필터를
+    # 통과해버려서 개별로 뺀다.
+    PRIORITY_KEYWORD_EXCLUDE = ["이마트24", "홈플러스 익스프레스", "서울숲팜프라자약국"]
     for category, keyword in TOUR_PRIORITY_KEYWORD_TARGETS:
         try:
             items = fetch_keyword(keyword)
