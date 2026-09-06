@@ -145,6 +145,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     border: 1.5px solid #ffcbb0; border-radius: 14px; padding: 5px 11px; white-space: nowrap;
   }}
   .contact-link:hover {{ background: #fff1ea; }}
+  .lang-toggle {{
+    flex-shrink: 0; font-size: 12px; color: #666; background: white; font-weight: 700;
+    border: 1.5px solid #eee; border-radius: 14px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+  }}
+  .lang-toggle:hover {{ background: #f8f8f8; }}
   {contact_widget_css}
   {admin_widget_css}
   .topbar-toggle {{
@@ -317,11 +322,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <body>
 <div class="topbar" id="topbar">
   <div class="topbar-header">
-    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline">전국 어디서나, 내 위치 기준 20km 나들이 지도</span></div>
+    <div class="brand"><span class="logo">🧸</span><h1>아이랑 가볼까</h1><span class="tagline" id="taglineText">전국 어디서나, 내 위치 기준 20km 나들이 지도</span></div>
     <div class="header-actions">
-      <a class="contact-link" href="hospital.html">🏥 아이가 아파요</a>
+      <a class="contact-link" id="hospitalLink" href="hospital.html">🏥 아이가 아파요</a>
       <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
-      <a class="contact-link" href="https://spacebug-arcade.web.app" target="_blank" rel="noopener">🎮 미니게임</a>
+      <a class="contact-link" id="miniGameLink" href="https://spacebug-arcade.web.app" target="_blank" rel="noopener">🎮 미니게임</a>
+      <button type="button" class="lang-toggle" id="langToggle">EN</button>
       <button type="button" class="topbar-toggle" id="topbarToggle" aria-label="메뉴 접기/펴기">▲</button>
     </div>
   </div>
@@ -353,6 +359,121 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (Date.now() - start < 2000) window.location.href = webUrl;
     }}, 1200);
   }};
+
+  // 화면에 뜨는 고정 UI 문구(헤더/버튼/팝업 라벨 등)만 번역 대상이다. 장소 데이터
+  // 자체(제목/주소/장르 등, TourAPI·NAVER·KOPIS에서 그대로 가져온 값)는 대량으로
+  // 번역할 방법이 마땅치 않아 번역 대상에서 제외하고 한국어 그대로 둔다.
+  const T = {{
+    ko: {{
+      tagline: '전국 어디서나, 내 위치 기준 20km 나들이 지도',
+      hospitalLink: '🏥 아이가 아파요',
+      contactBtn: '💬 문의하기',
+      miniGameLink: '🎮 미니게임',
+      listView: '목록 보기',
+      listViewCount: n => `목록 보기 (${{n}}건)`,
+      loading: '불러오는 중...',
+      placeCount: n => `장소 ${{n}}건`,
+      locateBtnTitle: '현재 위치로 이동',
+      emptyList: '조건에 맞는 곳이 없어요',
+      book: '예매',
+      detail: '상세',
+      bookDetail: '예매/상세보기',
+      detailOnly: '상세보기',
+      directions: '길찾기',
+      closedNow: '⏰ 운영시간 지남',
+      closedNowPopup: '⏰ 지금은 운영시간이 지났을 수 있어요',
+      approxLocation: '위치 대략',
+      period: '기간',
+      venue: '장소',
+      age: '연령',
+      price: '입장료',
+      priceTicket: '정가',
+      priceNote: '실제 예매가는 다를 수 있어요',
+      schedule: '운영시간',
+      scheduleTimeBound: '시간',
+      phone: '전화',
+      locateDenied: '위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.',
+      linkCopied: '링크를 복사했어요. 붙여넣기로 공유해보세요!',
+      copyPrompt: '아래 링크를 복사해서 공유해보세요',
+      shareBrand: '아이랑 가볼까',
+      loadFailed: '데이터를 불러오지 못했습니다',
+      categories: {{
+        '전체': '전체', '공연': '공연', '전시': '전시', '축제': '축제', '나들이·산책': '나들이·산책',
+        '동물원·수족관': '동물원·수족관', '체험·놀이': '체험·놀이', '쇼핑몰': '쇼핑몰',
+        '물놀이·찜질방': '물놀이·찜질방', '식당·카페': '식당·카페',
+      }},
+    }},
+    en: {{
+      tagline: 'Nationwide, outings within 20km of your location',
+      hospitalLink: '🏥 Feeling sick?',
+      contactBtn: '💬 Contact',
+      miniGameLink: '🎮 Mini Game',
+      listView: 'View List',
+      listViewCount: n => `View List (${{n}})`,
+      loading: 'Loading...',
+      placeCount: n => `${{n}} places`,
+      locateBtnTitle: 'Go to my location',
+      emptyList: 'No matching places found',
+      book: 'Book',
+      detail: 'Details',
+      bookDetail: 'Book / Details',
+      detailOnly: 'Details',
+      directions: 'Directions',
+      closedNow: '⏰ Closed now',
+      closedNowPopup: '⏰ May be closed right now',
+      approxLocation: 'Approx. location',
+      period: 'Dates',
+      venue: 'Venue',
+      age: 'Age',
+      price: 'Admission',
+      priceTicket: 'Price',
+      priceNote: 'Actual ticket price may vary',
+      schedule: 'Hours',
+      scheduleTimeBound: 'Time',
+      phone: 'Phone',
+      locateDenied: 'Could not get your location. Please check your browser location permission.',
+      linkCopied: 'Link copied. Paste it to share!',
+      copyPrompt: 'Copy the link below to share',
+      shareBrand: 'Kids Outing Map',
+      loadFailed: 'Failed to load data',
+      categories: {{
+        '전체': 'All', '공연': 'Shows', '전시': 'Exhibits', '축제': 'Festivals', '나들이·산책': 'Outdoors',
+        '동물원·수족관': 'Zoo·Aquarium', '체험·놀이': 'Play·Experience', '쇼핑몰': 'Malls',
+        '물놀이·찜질방': 'Water·Spa', '식당·카페': 'Dining',
+      }},
+    }},
+  }};
+
+  let lang = localStorage.getItem('lang') || 'ko';
+  function t(key) {{ return T[lang][key]; }}
+
+  function applyStaticText() {{
+    document.getElementById('taglineText').textContent = t('tagline');
+    document.getElementById('hospitalLink').textContent = t('hospitalLink');
+    document.getElementById('contactOpenBtn').textContent = t('contactBtn');
+    document.getElementById('miniGameLink').textContent = t('miniGameLink');
+    document.getElementById('sheetLabel').textContent = t('listView');
+    document.getElementById('countText').textContent = t('loading');
+    const locateBtn = document.getElementById('locateBtn');
+    locateBtn.title = t('locateBtnTitle');
+    locateBtn.setAttribute('aria-label', t('locateBtnTitle'));
+    document.getElementById('langToggle').textContent = lang === 'ko' ? 'EN' : '한글';
+    document.documentElement.lang = lang;
+  }}
+
+  document.getElementById('langToggle').addEventListener('click', () => {{
+    const prevActive = activeValue(document.getElementById('catChipRow'));
+    lang = lang === 'ko' ? 'en' : 'ko';
+    localStorage.setItem('lang', lang);
+    applyStaticText();
+    if (allPlaces.length) {{
+      initFilters(allPlaces);
+      if (prevActive) setActiveChip(document.getElementById('catChipRow'), prevActive);
+      applyFilters();
+    }}
+  }});
+
+  applyStaticText();
 
   const DEFAULT_CENTER = [37.5034, 126.7660]; // 부천시청 - GPS 거부/실패 시 기본값
   const FIXED_RADIUS_KM = 20; // 데이터 표출 범위: 현재 위치(또는 기본값) 반경 20km 고정
@@ -495,28 +616,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const p = allPlaces.find(x => x.id === id);
     if (!p) return;
     const url = `${{location.origin}}${{location.pathname}}?place=${{encodeURIComponent(id)}}`;
-    const shareData = {{ title: p.title, text: `${{p.title}} - 아이랑 가볼까`, url }};
+    const shareData = {{ title: p.title, text: `${{p.title}} - ${{t('shareBrand')}}`, url }};
     if (navigator.share) {{
       navigator.share(shareData).catch(() => {{}});
     }} else if (navigator.clipboard) {{
       navigator.clipboard.writeText(url).then(() => {{
-        alert('링크를 복사했어요. 붙여넣기로 공유해보세요!');
+        alert(t('linkCopied'));
       }}).catch(() => {{
-        prompt('아래 링크를 복사해서 공유해보세요', url);
+        prompt(t('copyPrompt'), url);
       }});
     }} else {{
-      prompt('아래 링크를 복사해서 공유해보세요', url);
+      prompt(t('copyPrompt'), url);
     }}
   }};
 
   function buildPopupHtml(p) {{
     const timeBound = isTimeBound(p);
     const posterHtml = p.poster ? `<img src="${{p.poster}}" alt="${{p.title}} 포스터">` : '';
-    const approxHtml = p.approx_location ? `<span class="approx">위치 대략</span>` : '';
-    const closedHtml = isLikelyClosedNow(p) ? `<span class="closed-badge">⏰ 지금은 운영시간이 지났을 수 있어요</span>` : '';
-    const priceLabel = p.type === 'performance' ? '정가' : '입장료';
-    const priceNote = p.type === 'performance' ? `<br><span class="price-note">실제 예매가는 다를 수 있어요</span>` : '';
-    const linkLabel = timeBound ? '예매/상세보기' : '상세보기';
+    const approxHtml = p.approx_location ? `<span class="approx">${{t('approxLocation')}}</span>` : '';
+    const closedHtml = isLikelyClosedNow(p) ? `<span class="closed-badge">${{t('closedNowPopup')}}</span>` : '';
+    const priceLabel = p.type === 'performance' ? t('priceTicket') : t('price');
+    const priceNote = p.type === 'performance' ? `<br><span class="price-note">${{t('priceNote')}}</span>` : '';
+    const linkLabel = timeBound ? t('bookDetail') : t('detailOnly');
     return (
       `<div class="prf-popup">` +
         `<button type="button" class="popup-close" onclick="window.__closeInfoWindow()">×</button>` +
@@ -525,16 +646,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         `<span class="genre">${{p.genre}}</span>` + approxHtml + closedHtml +
         `<h3>${{p.title}}</h3>` +
         `<dl>` +
-          (timeBound ? `<dt>기간</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` : '') +
-          `<dt>장소</dt><dd>${{p.venue}}<br>${{p.address}}</dd>` +
-          (p.age ? `<dt>연령</dt><dd>${{p.age}}</dd>` : '') +
+          (timeBound ? `<dt>${{t('period')}}</dt><dd>${{p.start_date}} ~ ${{p.end_date}}</dd>` : '') +
+          `<dt>${{t('venue')}}</dt><dd>${{p.venue}}<br>${{p.address}}</dd>` +
+          (p.age ? `<dt>${{t('age')}}</dt><dd>${{p.age}}</dd>` : '') +
           (p.price ? `<dt>${{priceLabel}}</dt><dd>${{p.price}}${{priceNote}}</dd>` : '') +
-          (p.schedule ? `<dt>${{timeBound ? '시간' : '운영시간'}}</dt><dd>${{p.schedule}}</dd>` : '') +
-          (p.telephone ? `<dt>전화</dt><dd>${{p.telephone}}</dd>` : '') +
+          (p.schedule ? `<dt>${{timeBound ? t('scheduleTimeBound') : t('schedule')}}</dt><dd>${{p.schedule}}</dd>` : '') +
+          (p.telephone ? `<dt>${{t('phone')}}</dt><dd>${{p.telephone}}</dd>` : '') +
         `</dl>` +
         `<div class="btn-row">` +
           `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener">${{linkLabel}}</a>` +
-          `<button class="directions-btn" onclick="openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
+          `<button class="directions-btn" onclick="openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">${{t('directions')}}</button>` +
         `</div>` +
       `</div>`
     );
@@ -595,7 +716,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   function renderList(list) {{
     const container = document.getElementById('listItems');
     if (list.length === 0) {{
-      container.innerHTML = '<div class="empty-msg">조건에 맞는 곳이 없어요</div>';
+      container.innerHTML = `<div class="empty-msg">${{t('emptyList')}}</div>`;
       return;
     }}
     container.innerHTML = list.map((p, i) => {{
@@ -613,10 +734,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             (timeBound ? `<div class="meta">${{p.start_date}} ~ ${{p.end_date}}</div>` : '') +
             `<div class="meta">${{p.venue}}</div>` +
             (p.price ? `<div class="price">${{p.price}}</div>` : '') +
-            (isLikelyClosedNow(p) ? `<div class="closed-note">⏰ 운영시간 지남</div>` : '') +
+            (isLikelyClosedNow(p) ? `<div class="closed-note">${{t('closedNow')}}</div>` : '') +
             `<div class="btn-row">` +
-              `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${{timeBound ? '예매' : '상세'}}</a>` +
-              `<button class="directions-btn" onclick="event.stopPropagation(); openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">길찾기</button>` +
+              `<a class="link-btn" href="${{p.link}}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${{timeBound ? t('book') : t('detail')}}</a>` +
+              `<button class="directions-btn" onclick="event.stopPropagation(); openDirections(${{p.lat}}, ${{p.lon}}, '${{encodeURIComponent(p.venue || p.title)}}')">${{t('directions')}}</button>` +
             `</div>` +
           `</div>` +
         `</div>`
@@ -731,8 +852,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     renderMarkers(filtered);
     renderList(filtered);
     const label = document.getElementById('sheetLabel');
-    if (label) label.textContent = `목록 보기 (${{filtered.length}}건)`;
-    document.getElementById('countText').textContent = `장소 ${{filtered.length}}건`;
+    if (label) label.textContent = t('listViewCount')(filtered.length);
+    document.getElementById('countText').textContent = t('placeCount')(filtered.length);
   }}
 
   function setActiveChip(rowEl, value) {{
@@ -793,7 +914,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       .filter(isInSeason);
     const catItems = categories.map(c => ({{
       value: c === '전체' ? '' : c,
-      label: c === '전체' ? '전체' : (CATEGORY_ICONS[c] || '🎫') + ' ' + c,
+      label: c === '전체' ? t('categories')['전체'] : (CATEGORY_ICONS[c] || '🎫') + ' ' + t('categories')[c],
     }}));
     initChipRow(document.getElementById('catChipRow'), catItems, value => {{
       if (window.__handleSecretChipClick) window.__handleSecretChipClick(value);
@@ -848,7 +969,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   document.getElementById('locateBtn').addEventListener('click', () => {{
     goToCurrentLocation(15, () => {{
-      alert('위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.');
+      alert(t('locateDenied'));
     }});
   }});
 
@@ -877,7 +998,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }}
     }})
     .catch(() => {{
-      document.getElementById('countText').textContent = '데이터를 불러오지 못했습니다';
+      document.getElementById('countText').textContent = t('loadFailed');
     }});
 </script>
 {contact_widget_block}

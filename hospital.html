@@ -91,6 +91,11 @@
   }
   .call-btn { background: #e0507a; color: white; }
   .directions-btn { background: #fff0f4; color: #c0392b; }
+  .lang-toggle {
+    flex-shrink: 0; font-size: 12px; color: #666; background: white; font-weight: 700;
+    border: 1.5px solid #eee; border-radius: 14px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+  }
+  .lang-toggle:hover { background: #f8f8f8; }
   
   .contact-overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
@@ -127,15 +132,16 @@
   <div class="topbar-header">
     <div class="brand"><span class="logo">🏥</span><h1>아이랑 병원</h1></div>
     <div class="header-actions">
-      <a class="nav-link" href="index.html">🧸 가볼까</a>
+      <a class="nav-link" id="mapLink" href="index.html">🧸 가볼까</a>
       <button type="button" class="contact-link" id="contactOpenBtn">💬 문의하기</button>
+      <button type="button" class="lang-toggle" id="langToggle">EN</button>
     </div>
   </div>
-  <p class="tagline">아이가 아파요? 내 위치 기준 20km, 지금 갈 수 있는 곳만 보여드려요</p>
+  <p class="tagline" id="taglineText">아이가 아파요? 내 위치 기준 20km, 지금 갈 수 있는 곳만 보여드려요</p>
   <div class="tab-row">
-    <button type="button" class="tab-btn active" data-cat="소아과">🧒 병원<br>(지금 열린 곳)</button>
-    <button type="button" class="tab-btn" data-cat="응급실">🚑 응급실</button>
-    <button type="button" class="tab-btn" data-cat="약국">💊 약국</button>
+    <button type="button" class="tab-btn active" data-cat="소아과" id="tabClinic">🧒 병원<br>(지금 열린 곳)</button>
+    <button type="button" class="tab-btn" data-cat="응급실" id="tabEr">🚑 응급실</button>
+    <button type="button" class="tab-btn" data-cat="약국" id="tabPharmacy">💊 약국</button>
   </div>
   <div class="locate-row">
     <button type="button" class="locate-btn" id="locateBtn">📍 내 위치 다시 확인</button>
@@ -149,6 +155,89 @@
   let refPoint = DEFAULT_CENTER;
   let allHospitals = [];
   let activeCat = '소아과';
+
+  // 화면 UI 문구만 번역 대상이다. 병원/약국 이름·주소는 데이터 그대로 한국어로 둔다.
+  const T = {
+    ko: {
+      mapLink: '🧸 가볼까',
+      contactBtn: '💬 문의하기',
+      tagline: '아이가 아파요? 내 위치 기준 20km, 지금 갈 수 있는 곳만 보여드려요',
+      tabClinic: '🧒 병원<br>(지금 열린 곳)',
+      tabEr: '🚑 응급실',
+      tabPharmacy: '💊 약국',
+      locateBtn: '📍 내 위치 다시 확인',
+      locating: '위치 확인 중...',
+      noGeoSupport: '위치 기능을 지원하지 않는 브라우저예요',
+      gotLocation: '내 위치 기준으로 보여드려요',
+      deniedLocation: '위치 정보를 가져올 수 없어요 (기본 지역 기준으로 보여드려요)',
+      searchHint: '🔍 후기 검색',
+      callBtn: '📞 전화하기',
+      directionsBtn: '🚗 길찾기',
+      todayHoursNone: '오늘 진료시간 정보 없음',
+      todayHoursPrefix: '오늘',
+      badgeClinic: h => `🟢 소아과 진료중 · ${h}`,
+      badgeGeneral: h => `⚠️ 진료중(소아과 아님) · ${h} · 전화 확인 필요`,
+      badgePharmacy: h => `💊 영업중 · ${h}`,
+      badgeEr: '🚑 응급실',
+      emptyClinic: '지금 문 연 병원이 없어요 😢<br>응급실 탭을 확인해보세요',
+      emptyPharmacy: '지금 문 연 약국이 없어요 😢',
+      emptyEr: '주변에 응급실 정보가 없어요',
+      emptyDefault: '결과가 없어요',
+      loadFailed: '데이터를 불러오지 못했습니다',
+    },
+    en: {
+      mapLink: '🧸 Outings',
+      contactBtn: '💬 Contact',
+      tagline: 'Is your child sick? Places within 20km of your location that are open now',
+      tabClinic: '🧒 Clinic<br>(Open now)',
+      tabEr: '🚑 ER',
+      tabPharmacy: '💊 Pharmacy',
+      locateBtn: '📍 Refresh my location',
+      locating: 'Checking location...',
+      noGeoSupport: 'This browser does not support location',
+      gotLocation: 'Showing results near your location',
+      deniedLocation: 'Could not get your location (showing default area)',
+      searchHint: '🔍 Search reviews',
+      callBtn: '📞 Call',
+      directionsBtn: '🚗 Directions',
+      todayHoursNone: 'No hours info for today',
+      todayHoursPrefix: 'Today',
+      badgeClinic: h => `🟢 Open now (pediatric) · ${h}`,
+      badgeGeneral: h => `⚠️ Open (not pediatric) · ${h} · call to confirm`,
+      badgePharmacy: h => `💊 Open now · ${h}`,
+      badgeEr: '🚑 ER',
+      emptyClinic: 'No clinics open right now 😢<br>Check the ER tab',
+      emptyPharmacy: 'No pharmacies open right now 😢',
+      emptyEr: 'No ER info nearby',
+      emptyDefault: 'No results',
+      loadFailed: 'Failed to load data',
+    },
+  };
+
+  let lang = localStorage.getItem('lang') || 'ko';
+  function t(key) { return T[lang][key]; }
+
+  function applyStaticText() {
+    document.getElementById('mapLink').textContent = t('mapLink');
+    document.getElementById('contactOpenBtn').textContent = t('contactBtn');
+    document.getElementById('taglineText').textContent = t('tagline');
+    document.getElementById('tabClinic').innerHTML = t('tabClinic');
+    document.getElementById('tabEr').textContent = t('tabEr');
+    document.getElementById('tabPharmacy').textContent = t('tabPharmacy');
+    document.getElementById('locateBtn').textContent = t('locateBtn');
+    document.getElementById('langToggle').textContent = lang === 'ko' ? 'EN' : '한글';
+    document.documentElement.lang = lang;
+  }
+
+  document.getElementById('langToggle').addEventListener('click', () => {
+    lang = lang === 'ko' ? 'en' : 'ko';
+    localStorage.setItem('lang', lang);
+    applyStaticText();
+    if (lastLocateStatusKey) document.getElementById('locateStatus').textContent = t(lastLocateStatusKey);
+    if (allHospitals.length) render();
+  });
+
+  applyStaticText();
 
   function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
@@ -183,8 +272,8 @@
     const jsDay = now.getDay();
     const todayCode = jsDay === 0 ? 7 : jsDay;
     const slot = hours && hours.find(h => h.day === todayCode);
-    if (!slot) return '오늘 진료시간 정보 없음';
-    return `오늘 ${fmtHours(slot.start)} ~ ${fmtHours(slot.end)}`;
+    if (!slot) return t('todayHoursNone');
+    return `${t('todayHoursPrefix')} ${fmtHours(slot.start)} ~ ${fmtHours(slot.end)}`;
   }
 
   window.openDirections = function (lat, lon, encodedName) {
@@ -222,24 +311,24 @@
 
     if (list.length === 0) {
       const msgs = {
-        '소아과': '지금 문 연 병원이 없어요 😢<br>응급실 탭을 확인해보세요',
-        '약국': '지금 문 연 약국이 없어요 😢',
-        '응급실': '주변에 응급실 정보가 없어요',
+        '소아과': t('emptyClinic'),
+        '약국': t('emptyPharmacy'),
+        '응급실': t('emptyEr'),
       };
-      container.innerHTML = `<div class="empty-msg">${msgs[activeCat] || '결과가 없어요'}</div>`;
+      container.innerHTML = `<div class="empty-msg">${msgs[activeCat] || t('emptyDefault')}</div>`;
       return;
     }
 
     container.innerHTML = list.map(h => {
       let badge;
       if (h.category === '소아과') {
-        badge = `<span class="badge open">🟢 소아과 진료중 · ${todayHoursText(h.hours)}</span>`;
+        badge = `<span class="badge open">${t('badgeClinic')(todayHoursText(h.hours))}</span>`;
       } else if (h.category === '일반의원') {
-        badge = `<span class="badge general">⚠️ 진료중(소아과 아님) · ${todayHoursText(h.hours)} · 전화 확인 필요</span>`;
+        badge = `<span class="badge general">${t('badgeGeneral')(todayHoursText(h.hours))}</span>`;
       } else if (h.category === '약국') {
-        badge = `<span class="badge open">💊 영업중 · ${todayHoursText(h.hours)}</span>`;
+        badge = `<span class="badge open">${t('badgePharmacy')(todayHoursText(h.hours))}</span>`;
       } else {
-        badge = `<span class="badge er">🚑 응급실</span>`;
+        badge = `<span class="badge er">${t('badgeEr')}</span>`;
       }
       // 처음엔 주소(시/도+시/군/구)도 검색어에 같이 넣었는데, 오히려 정확한 검색이
       // 안 되는 경우가 있어서 이름만으로 검색하도록 되돌렸다.
@@ -247,13 +336,13 @@
       return (
         `<div class="h-card">` +
           badge +
-          `<h4><a href="${searchUrl}" target="_blank" rel="noopener">${h.title}</a><span class="search-hint">🔍 후기 검색</span></h4>` +
+          `<h4><a href="${searchUrl}" target="_blank" rel="noopener">${h.title}</a><span class="search-hint">${t('searchHint')}</span></h4>` +
           `<div class="meta">${h.address}</div>` +
           (h.telephone ? `<div class="meta">${h.telephone}</div>` : '') +
           `<div class="dist">약 ${h._dist.toFixed(1)}km</div>` +
           `<div class="btn-row">` +
-            (h.telephone ? `<a class="call-btn" href="tel:${h.telephone}">📞 전화하기</a>` : '') +
-            `<a class="directions-btn" href="#" onclick="event.preventDefault(); openDirections(${h.lat}, ${h.lon}, '${encodeURIComponent(h.title)}')">🚗 길찾기</a>` +
+            (h.telephone ? `<a class="call-btn" href="tel:${h.telephone}">${t('callBtn')}</a>` : '') +
+            `<a class="directions-btn" href="#" onclick="event.preventDefault(); openDirections(${h.lat}, ${h.lon}, '${encodeURIComponent(h.title)}')">${t('directionsBtn')}</a>` +
           `</div>` +
         `</div>`
       );
@@ -268,22 +357,29 @@
     });
   });
 
+  // locateStatus는 위치 확인 결과에 따라 나중에 비동기로 채워지는 문구라, 언어를
+  // 바꿀 때 다시 그려주려면 마지막으로 어떤 상태였는지 키로 기억해둬야 한다.
+  let lastLocateStatusKey = null;
+  function setLocateStatus(key) {
+    lastLocateStatusKey = key;
+    document.getElementById('locateStatus').textContent = t(key);
+  }
+
   function goToCurrentLocation(onDone) {
-    const statusEl = document.getElementById('locateStatus');
     if (!navigator.geolocation) {
-      statusEl.textContent = '위치 기능을 지원하지 않는 브라우저예요';
+      setLocateStatus('noGeoSupport');
       if (onDone) onDone(false);
       return;
     }
     navigator.geolocation.getCurrentPosition(
       pos => {
         refPoint = [pos.coords.latitude, pos.coords.longitude];
-        statusEl.textContent = '내 위치 기준으로 보여드려요';
+        setLocateStatus('gotLocation');
         render();
         if (onDone) onDone(true);
       },
       () => {
-        statusEl.textContent = '위치 정보를 가져올 수 없어요 (기본 지역 기준으로 보여드려요)';
+        setLocateStatus('deniedLocation');
         if (onDone) onDone(false);
       },
       { timeout: 5000 }
@@ -291,7 +387,7 @@
   }
 
   document.getElementById('locateBtn').addEventListener('click', () => {
-    document.getElementById('locateStatus').textContent = '위치 확인 중...';
+    setLocateStatus('locating');
     goToCurrentLocation();
   });
 
@@ -303,7 +399,7 @@
       goToCurrentLocation(); // 거부/실패해도 기본값(부천)으로 이미 떠 있으니 별도 처리 없음
     })
     .catch(() => {
-      document.getElementById('listItems').innerHTML = '<div class="empty-msg">데이터를 불러오지 못했습니다</div>';
+      document.getElementById('listItems').innerHTML = `<div class="empty-msg">${t('loadFailed')}</div>`;
     });
 </script>
 
