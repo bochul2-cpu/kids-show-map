@@ -23,7 +23,15 @@ from settings import (
 from config import TOUR_API_KEY
 from collect import clean_telno, to_https
 
-REQUEST_DELAY = 0.05
+REQUEST_DELAY = 0.15
+# 이 세션에서 TOUR_CATEGORY_TARGETS/TOUR_PRIORITY_KEYWORD_TARGETS를 크게 늘리면서
+# (지역x카테고리 조합 수 자체가 증가) 요청 총량이 늘었고, 그 이후로 429가 잦아져서
+# 2026-09-06/07/09 세 번이나 GitHub Actions 6시간 제한까지 채우고 죽는 일이
+# 반복됐다(각 429마다 최대 90초씩 재시도 대기가 쌓이는 구조라, 요청 총량이 늘면
+# 429 한번 재시도 비용의 누적 총합도 같이 커진다). 기본 요청 간격을 늘려 애초에
+# 429를 덜 맞게 하는 쪽으로 완화한다 - daily.yml 쪽에도 이 단계가 너무 오래 걸리면
+# 일찍 실패하고 나머지 단계는 계속 진행되도록 timeout-minutes/continue-on-error를
+# 걸어뒀다.
 ALWAYS_OPEN_START = "2000.01.01"
 ALWAYS_OPEN_END = "2099.12.31"
 KST = timezone(timedelta(hours=9))
