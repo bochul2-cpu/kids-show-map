@@ -164,8 +164,20 @@ RETRY_ATTEMPTS = 3
 # 병원 데이터가 통째로 누락된다. collect_tour.py와 같은 패턴으로 30초 대기 후 재시도한다.
 BACKOFF_429_SECONDS = 30
 
+# 하루 트래픽 한도가 아예 소진된 날은(2026-09-09 실제로 겪음 - 이 API가
+# TOUR_API_KEY를 공유해서, 그쪽 계정 한도가 소진되면 여기도 전부 막힌다) 231개
+# 지역을 하나하나 재시도하느라 시간만 날리고 빈 손으로 끝난다. collect_tour.py와
+# 같은 회로차단기 패턴 - 연속 실패가 쌓이면 오늘은 포기한다.
+CIRCUIT_BREAKER_THRESHOLD = 10
+_consecutive_failures = 0
+
+
+class ApiExhaustedError(Exception):
+    """하루 트래픽 한도가 소진된 것으로 판단해 남은 수집을 포기할 때 던진다."""
+
 
 def fetch_area(base_url: str, q0: str, q1: str) -> list[dict]:
+    global _consecutive_failures
     items = []
     page = 1
     while True:
@@ -179,12 +191,18 @@ def fetch_area(base_url: str, q0: str, q1: str) -> list[dict]:
             try:
                 resp = requests.get(base_url, params=params, timeout=15)
                 resp.raise_for_status()
+                _consecutive_failures = 0
                 break
             except requests.HTTPError as e:
                 if e.response is not None and e.response.status_code == 429 and attempt < RETRY_ATTEMPTS - 1:
                     print(f"[안내] {q0} {q1} 429(트래픽 한도) - {BACKOFF_429_SECONDS}초 대기 후 재시도 ({attempt + 1}/{RETRY_ATTEMPTS})")
                     time.sleep(BACKOFF_429_SECONDS)
                 else:
+                    _consecutive_failures += 1
+                    if _consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+                        raise ApiExhaustedError(
+                            f"연속 {_consecutive_failures}회 요청 실패 - 오늘 트래픽 한도가 소진된 것으로 보고 수집을 중단합니다."
+                        ) from e
                     raise
         body = resp.json().get("response", {}).get("body", {})
         page_items = body.get("items", "")
@@ -244,47 +262,50 @@ def build_entry(item: dict, category: str, id_prefix: str = "hosp") -> dict | No
 def collect_hospitals() -> list[dict]:
     seen_ids: set[str] = set()
     entries: list[dict] = []
-    for q0, q1 in AREAS:
-        try:
-            items = fetch_area(HOSPITAL_URL, q0, q1)
-        except requests.RequestException as e:
-            print(f"[경고] {q0} {q1} 병원 조회 실패: {e}")
-            items = []
+    try:
+        for q0, q1 in AREAS:
+            try:
+                items = fetch_area(HOSPITAL_URL, q0, q1)
+            except requests.RequestException as e:
+                print(f"[경고] {q0} {q1} 병원 조회 실패: {e}")
+                items = []
 
-        for item in items:
-            name = item.get("dutyName", "")
-            is_pediatric = any(k in name for k in PEDIATRIC_KEYWORDS)
-            is_general_clinic = (
-                not is_pediatric
-                and item.get("dutyDiv") == "C"
-                and not any(k in name for k in IRRELEVANT_KEYWORDS)
-            )
-            is_er = item.get("dutyEmclsName", "응급의료기관 이외") != "응급의료기관 이외"
+            for item in items:
+                name = item.get("dutyName", "")
+                is_pediatric = any(k in name for k in PEDIATRIC_KEYWORDS)
+                is_general_clinic = (
+                    not is_pediatric
+                    and item.get("dutyDiv") == "C"
+                    and not any(k in name for k in IRRELEVANT_KEYWORDS)
+                )
+                is_er = item.get("dutyEmclsName", "응급의료기관 이외") != "응급의료기관 이외"
 
-            for category in filter(None, [
-                "소아과" if is_pediatric else None,
-                "일반의원" if is_general_clinic else None,
-                "응급실" if is_er else None,
-            ]):
-                entry = build_entry(item, category)
+                for category in filter(None, [
+                    "소아과" if is_pediatric else None,
+                    "일반의원" if is_general_clinic else None,
+                    "응급실" if is_er else None,
+                ]):
+                    entry = build_entry(item, category)
+                    if entry and entry["id"] not in seen_ids:
+                        seen_ids.add(entry["id"])
+                        entries.append(entry)
+
+            try:
+                pharmacy_items = fetch_area(PHARMACY_URL, q0, q1)
+            except requests.RequestException as e:
+                print(f"[경고] {q0} {q1} 약국 조회 실패: {e}")
+                pharmacy_items = []
+
+            for item in pharmacy_items:
+                entry = build_entry(item, "약국", id_prefix="pharm")
                 if entry and entry["id"] not in seen_ids:
                     seen_ids.add(entry["id"])
                     entries.append(entry)
 
-        try:
-            pharmacy_items = fetch_area(PHARMACY_URL, q0, q1)
-        except requests.RequestException as e:
-            print(f"[경고] {q0} {q1} 약국 조회 실패: {e}")
-            pharmacy_items = []
-
-        for item in pharmacy_items:
-            entry = build_entry(item, "약국", id_prefix="pharm")
-            if entry and entry["id"] not in seen_ids:
-                seen_ids.add(entry["id"])
-                entries.append(entry)
-
-        print(f"[진행] {q0} {q1} 완료, 누적 {len(entries)}건")
-        time.sleep(REQUEST_DELAY)
+            print(f"[진행] {q0} {q1} 완료, 누적 {len(entries)}건")
+            time.sleep(REQUEST_DELAY)
+    except ApiExhaustedError as e:
+        print(f"[경고] {e} 지금까지 모은 {len(entries)}건으로 수집을 마칩니다.")
     return entries
 
 

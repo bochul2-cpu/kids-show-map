@@ -43,8 +43,26 @@ TOUR_RETRY_ATTEMPTS = 3
 # 가서는 다시 풀려있었다. 그래서 429를 만나면 훨씬 길게(30초) 쉬었다가 재시도한다.
 TOUR_429_BACKOFF_SECONDS = 30
 
+# 하루 트래픽 한도(quota)가 아예 소진된 날은(2026-09-09 실제로 겪음: 병원 API까지
+# 같이 막힘 - 서비스키를 공유하는 공공데이터포털 계정 단위 한도로 추정) 이 재시도
+# 로직으로는 절대 안 풀리는데도, 모든 지역x카테고리x키워드 조합을 하나하나 3번씩
+# 재시도하느라 시간만 낭비하고(각 요청 최대 90초) 결국 빈 손으로 끝난다. 연속으로
+# 이만큼 실패하면 "오늘은 이 API 자체가 막혔다"고 보고 나머지는 포기한다 -
+# main()의 30% 하한 안전장치가 이미 있어서, 여기서 빨리 포기해도 데이터가 덜
+# 갱신될 뿐 나쁜 데이터로 교체되지는 않는다.
+CIRCUIT_BREAKER_THRESHOLD = 10
+_consecutive_failures = 0
+
+
+class ApiExhaustedError(Exception):
+    """하루 트래픽 한도가 소진된 것으로 판단해 남은 수집을 포기할 때 던진다.
+    requests.RequestException이 아니라서 기존의 낱개 요청 실패 처리
+    (`except requests.RequestException: continue`)를 그대로 통과해 위로
+    전파되고, collect_tour_places()의 최상위에서만 잡힌다."""
+
 
 def tour_request(endpoint: str, params: dict) -> dict:
+    global _consecutive_failures
     full_params = {
         "serviceKey": TOUR_API_KEY,
         "MobileOS": "ETC",
@@ -58,6 +76,7 @@ def tour_request(endpoint: str, params: dict) -> dict:
         try:
             response = requests.get(url, params=full_params, timeout=15)
             response.raise_for_status()
+            _consecutive_failures = 0
             return response.json()["response"]["body"]
         except requests.HTTPError as e:
             last_error = e
@@ -69,6 +88,12 @@ def tour_request(endpoint: str, params: dict) -> dict:
         except requests.RequestException as e:
             last_error = e
             time.sleep(0.5 * (attempt + 1))
+
+    _consecutive_failures += 1
+    if _consecutive_failures >= CIRCUIT_BREAKER_THRESHOLD:
+        raise ApiExhaustedError(
+            f"연속 {_consecutive_failures}회 요청 실패 - 오늘 트래픽 한도가 소진된 것으로 보고 수집을 중단합니다."
+        ) from last_error
     raise last_error
 
 
@@ -265,70 +290,76 @@ def collect_tour_places() -> list[dict]:
     places: list[dict] = []
     add_place = _make_add_place(seen_ids, places)
 
-    # 0) 카테고리 수집보다 먼저 선점해야 하는 키워드 (예: 스타필드가 "이색체험"
-    #    카테고리로 먼저 잡혀버리는 걸 방지 - seen_ids로 중복을 거르기 때문에
-    #    먼저 추가한 쪽의 category 라벨이 그대로 유지된다)
-    #
-    # "스타필드"로 검색하면 스타필드 안에 입점한 개별 브랜드 매장까지 다 걸린다
-    # ("구찌 스타필드 하남점" 같은 게 390건 중 389건 - 실제 몰 자체는 "스타필드 하남"
-    # 하나뿐). 몰/마트 이름이 제목 맨 앞에 오는 것만 실제 그 장소이고, 브랜드명이
-    # 앞에 붙은 건 안에 입점한 매장이라 title이 검색어로 시작하는 것만 남긴다.
-    # 이마트24/홈플러스 익스프레스처럼 완전히 다른 소형 편의점 포맷도 같이 걸려서 뺀다.
-    # "롯데프리미엄아울렛 의왕점[면세점(TAX REFUND SHOP)]"처럼 같은 건물의 면세점
-    # 코너가 본점과 별도 항목으로 또 잡히는 경우가 있어(내용 완전 중복) 같이 뺀다.
-    # "서울숲팜프라자약국"처럼 "서울숲"으로 시작하는 무관 업체(약국)도 startswith 필터를
-    # 통과해버려서 개별로 뺀다.
-    PRIORITY_KEYWORD_EXCLUDE = ["이마트24", "홈플러스 익스프레스", "서울숲팜프라자약국"]
-    for category, keyword in TOUR_PRIORITY_KEYWORD_TARGETS:
-        try:
-            items = fetch_keyword(keyword)
-        except requests.RequestException as e:
-            print(f"[경고] 우선 키워드 '{keyword}' 조회 실패: {e}")
-            continue
-        for item in items:
-            title = item.get("title", "")
-            if not title.startswith(keyword):
-                continue
-            if any(title.startswith(ex) for ex in PRIORITY_KEYWORD_EXCLUDE):
-                continue
-            if "면세점" in title:
-                continue
-            area_code = item.get("areacode", "")
-            region_group = region_group_from_area(area_code) if area_code else "기타"
-            add_place(item, category, keyword, False, False, region_group)
-        time.sleep(REQUEST_DELAY)
-        print(f"[진행] 우선 키워드 '{keyword}' 완료, 누적 {len(places)}건")
-
-    # 1) 카테고리 코드 기반 수집 (지역 x 카테고리)
-    for category, content_type_id, cat1, cat2, cat3, genre_label, needs_detail in TOUR_CATEGORY_TARGETS:
-        for area_code in TOUR_AREA_CODES:
+    try:
+        # 0) 카테고리 수집보다 먼저 선점해야 하는 키워드 (예: 스타필드가 "이색체험"
+        #    카테고리로 먼저 잡혀버리는 걸 방지 - seen_ids로 중복을 거르기 때문에
+        #    먼저 추가한 쪽의 category 라벨이 그대로 유지된다)
+        #
+        # "스타필드"로 검색하면 스타필드 안에 입점한 개별 브랜드 매장까지 다 걸린다
+        # ("구찌 스타필드 하남점" 같은 게 390건 중 389건 - 실제 몰 자체는 "스타필드 하남"
+        # 하나뿐). 몰/마트 이름이 제목 맨 앞에 오는 것만 실제 그 장소이고, 브랜드명이
+        # 앞에 붙은 건 안에 입점한 매장이라 title이 검색어로 시작하는 것만 남긴다.
+        # 이마트24/홈플러스 익스프레스처럼 완전히 다른 소형 편의점 포맷도 같이 걸려서 뺀다.
+        # "롯데프리미엄아울렛 의왕점[면세점(TAX REFUND SHOP)]"처럼 같은 건물의 면세점
+        # 코너가 본점과 별도 항목으로 또 잡히는 경우가 있어(내용 완전 중복) 같이 뺀다.
+        # "서울숲팜프라자약국"처럼 "서울숲"으로 시작하는 무관 업체(약국)도 startswith 필터를
+        # 통과해버려서 개별로 뺀다.
+        PRIORITY_KEYWORD_EXCLUDE = ["이마트24", "홈플러스 익스프레스", "서울숲팜프라자약국"]
+        for category, keyword in TOUR_PRIORITY_KEYWORD_TARGETS:
             try:
-                items = fetch_area_category(content_type_id, area_code, cat1, cat2, cat3)
+                items = fetch_keyword(keyword)
             except requests.RequestException as e:
-                print(f"[경고] {category}/{genre_label}/{area_code} 조회 실패: {e}")
+                print(f"[경고] 우선 키워드 '{keyword}' 조회 실패: {e}")
                 continue
-            region_group = region_group_from_area(area_code)
             for item in items:
-                add_place(item, category, genre_label, needs_detail, False, region_group)
+                title = item.get("title", "")
+                if not title.startswith(keyword):
+                    continue
+                if any(title.startswith(ex) for ex in PRIORITY_KEYWORD_EXCLUDE):
+                    continue
+                if "면세점" in title:
+                    continue
+                area_code = item.get("areacode", "")
+                region_group = region_group_from_area(area_code) if area_code else "기타"
+                add_place(item, category, keyword, False, False, region_group)
             time.sleep(REQUEST_DELAY)
-        print(f"[진행] {category}/{genre_label} 완료, 누적 {len(places)}건")
+            print(f"[진행] 우선 키워드 '{keyword}' 완료, 누적 {len(places)}건")
 
-    # 2) 축제
-    places.extend(collect_festivals(seen_ids))
+        # 1) 카테고리 코드 기반 수집 (지역 x 카테고리)
+        for category, content_type_id, cat1, cat2, cat3, genre_label, needs_detail in TOUR_CATEGORY_TARGETS:
+            for area_code in TOUR_AREA_CODES:
+                try:
+                    items = fetch_area_category(content_type_id, area_code, cat1, cat2, cat3)
+                except requests.RequestException as e:
+                    print(f"[경고] {category}/{genre_label}/{area_code} 조회 실패: {e}")
+                    continue
+                region_group = region_group_from_area(area_code)
+                for item in items:
+                    add_place(item, category, genre_label, needs_detail, False, region_group)
+                time.sleep(REQUEST_DELAY)
+            print(f"[진행] {category}/{genre_label} 완료, 누적 {len(places)}건")
 
-    # 3) 카테고리 코드가 없어 키워드로 보완하는 것들 (동물원/아쿠아리움/글램핑/워터파크)
-    for category, keyword in TOUR_KEYWORD_TARGETS:
-        try:
-            items = fetch_keyword(keyword)
-        except requests.RequestException as e:
-            print(f"[경고] 키워드 '{keyword}' 조회 실패: {e}")
-            continue
-        for item in items:
-            area_code = item.get("areacode", "")
-            region_group = region_group_from_area(area_code) if area_code else "기타"
-            add_place(item, category, keyword, False, False, region_group)
-        time.sleep(REQUEST_DELAY)
-        print(f"[진행] 키워드 '{keyword}' 완료, 누적 {len(places)}건")
+        # 2) 축제
+        places.extend(collect_festivals(seen_ids))
+
+        # 3) 카테고리 코드가 없어 키워드로 보완하는 것들 (동물원/아쿠아리움/글램핑/워터파크)
+        for category, keyword in TOUR_KEYWORD_TARGETS:
+            try:
+                items = fetch_keyword(keyword)
+            except requests.RequestException as e:
+                print(f"[경고] 키워드 '{keyword}' 조회 실패: {e}")
+                continue
+            for item in items:
+                area_code = item.get("areacode", "")
+                region_group = region_group_from_area(area_code) if area_code else "기타"
+                add_place(item, category, keyword, False, False, region_group)
+            time.sleep(REQUEST_DELAY)
+            print(f"[진행] 키워드 '{keyword}' 완료, 누적 {len(places)}건")
+    except ApiExhaustedError as e:
+        # 낱개 요청 실패(requests.RequestException)는 각 루프의 try/except가 이미
+        # 걸러서 다음 조합으로 넘어가지만, 이 예외는 그걸 뚫고 여기까지 올라온
+        # 것이므로 오늘은 더 시도해봐야 소용없다고 보고 지금까지 모은 것만 반환한다.
+        print(f"[경고] {e} 지금까지 모은 {len(places)}건으로 수집을 마칩니다.")
 
     return places
 
