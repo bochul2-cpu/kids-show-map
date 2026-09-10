@@ -4,6 +4,7 @@
 collect.py 다음에 실행하는 걸 전제로 한다 (KOPIS 데이터가 이미 저장돼 있어야 그 위에 합침).
 """
 import json
+import subprocess
 import time
 import re
 from datetime import datetime, timezone, timedelta
@@ -343,6 +344,27 @@ def _save(places: list[dict]) -> None:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
+def _git_head_tour_places() -> list[dict]:
+    """git에 마지막으로 커밋된(collect.py가 이번에 지우기 전) tour_ 항목들을 가져온다.
+    2026-09-09/10에 실제로 터진 버그: 이 함수 없이 그냥 작업 디렉터리의
+    data/places.json을 읽으면, 파이프라인 순서상 collect.py가 이미 그 파일을
+    KOPIS만 남기고 통째로 새로 썼은 뒤라서 tour_ 항목이 이미 0개다 - 그래서
+    "기존보다 30% 이상 적으면 실패로 본다"는 보호장치가 항상 0건과 비교하게 돼
+    사실상 작동한 적이 없었다(0 > 0 이 거짓이라 조건 자체가 안 걸림). TourAPI가
+    하루 종일 막혀서 tour_places가 진짜 0건이 나온 날, 이 보호장치가 안 걸리면서
+    3,679건이던 tour_ 항목이 그대로 0건으로 커밋/배포된 사고가 있었다. 그래서
+    "이번 실행이 시작되기 전, 마지막으로 git에 커밋된 상태"를 기준으로 삼는다."""
+    try:
+        raw = subprocess.run(
+            ["git", "show", f"HEAD:{TOUR_DATA_PATH}"],
+            capture_output=True, check=True, text=True, encoding="utf-8",
+        ).stdout
+        head_places = json.loads(raw)["places"]
+    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError, KeyError):
+        return []
+    return [p for p in head_places if str(p.get("id", "")).startswith("tour_")]
+
+
 def main():
     with open(TOUR_DATA_PATH, "r", encoding="utf-8") as f:
         existing = json.load(f)
@@ -351,19 +373,27 @@ def main():
     # KOPIS 공연(성능 데이터)만 남기고 이전 TourAPI 항목("tour_" 접두어)은 걷어낸 뒤
     # 새로 수집한 것으로 통째로 교체한다
     kopis_places = [p for p in existing["places"] if not str(p.get("id", "")).startswith("tour_")]
-    existing_tour_count = len(existing["places"]) - len(kopis_places)
+
+    head_tour_places = _git_head_tour_places()
+    existing_tour_count = len(head_tour_places)
 
     tour_places = collect_tour_places()
 
     # 트래픽 한도 초과로 중간에 실패하면 결과가 확 줄어들 수 있는데(직접 겪음: 5080건 ->
-    # 3497건), 그걸로 기존의 더 완전한 데이터를 덮어쓰면 매일 밤 배치가 조용히 데이터를
-    # 갉아먹는 꼴이 된다. 새로 모은 게 기존보다 30% 이상 적으면 실패로 보고 교체하지 않는다.
+    # 3497건, 그리고 2026-09-09엔 아예 0건), 그걸로 기존의 더 완전한 데이터를 덮어쓰면
+    # 매일 밤 배치가 조용히 데이터를 갉아먹는 꼴이 된다. 새로 모은 게 기존보다 30%
+    # 이상 적으면 실패로 보고, git에 남아있던 마지막 정상 tour_ 데이터를 그대로
+    # 되살려서 저장한다 (그냥 return 하면 collect.py가 이미 지워버린 파일이 tour_
+    # 0건인 채로 남아 다음 단계로 넘어가버리므로, 반드시 되살려서 저장해야 한다).
     if existing_tour_count > 0 and len(tour_places) < existing_tour_count * 0.7:
         print(
             f"[경고] 새로 수집한 TourAPI 데이터({len(tour_places)}건)가 기존"
             f"({existing_tour_count}건)보다 크게 적습니다 - 아마 트래픽 한도 문제로 보고,"
-            f" 기존 데이터를 그대로 유지합니다."
+            f" git에 남아있던 마지막 정상 데이터를 그대로 유지합니다."
         )
+        combined_places = kopis_places + head_tour_places
+        _save(combined_places)
+        print(f"TourAPI 기존 유지 {len(head_tour_places)}건 -> 총 {len(combined_places)}건 -> {TOUR_DATA_PATH}")
         return
 
     combined_places = kopis_places + tour_places

@@ -12,6 +12,7 @@
 보여주는 것보다 이름/주소/전화번호까지만 보여주고 전화로 확인하게 하는 게 안전하다.
 """
 import json
+import subprocess
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -287,8 +288,35 @@ def collect_hospitals() -> list[dict]:
     return entries
 
 
+def _git_head_hospital_count() -> int:
+    """git에 마지막으로 커밋된 data/hospitals.json의 건수. 2026-09-09/10에 실제로
+    터진 사고: 이 스크립트엔 원래 결과 개수를 검증하는 안전장치가 전혀 없어서,
+    그날 API가(아마 collect_tour.py와 서비스키를 공유하는 tour API 쪽 일일 한도가
+    먼저 소진돼서 영향을 받은 것으로 추정) 231개 지역 전체에서 실패했는데도 그냥
+    빈 배열(0건)을 그대로 저장 -> 커밋 -> 배포까지 돼버려서 "아이랑 병원" 페이지가
+    통째로 비었다. collect_tour.py의 30% 하한 보호장치와 같은 패턴을 여기도 건다."""
+    try:
+        raw = subprocess.run(
+            ["git", "show", f"HEAD:{DATA_PATH}"],
+            capture_output=True, check=True, text=True, encoding="utf-8",
+        ).stdout
+        return json.loads(raw).get("count", 0)
+    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+        return 0
+
+
 def main():
+    existing_count = _git_head_hospital_count()
     entries = collect_hospitals()
+
+    if existing_count > 0 and len(entries) < existing_count * 0.7:
+        print(
+            f"[경고] 새로 수집한 병원/약국 데이터({len(entries)}건)가 기존"
+            f"({existing_count}건)보다 크게 적습니다 - 아마 API 트래픽 한도 문제로 보고,"
+            f" data/hospitals.json을 갱신하지 않고 그대로 둡니다."
+        )
+        return
+
     payload = {
         "updated_at": datetime.now(KST).isoformat(),
         "count": len(entries),
