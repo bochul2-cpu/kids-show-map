@@ -206,6 +206,36 @@ TOUR_PRIORITY_KEYWORD_TARGETS = [
     # 충남 태안 - 세계적 미로 디자이너가 만든 가변형 미로가 있는 관광농원.
     # 출처: https://mom-mom.net/travel/places/66f366c867183012ca4276b5
     ("체험·놀이", "바람아래관광농원"),
+    # 2026-09-14 - 주간 데이터 완전성 점검(강원 차례) - "강원 아이랑 가볼만한곳"/
+    # "강원 무료 나들이 명소" 등으로 웹 검색해 발견. 전부 data/places.json에 없는 걸
+    # 확인했다. TourAPI 실제 등록 여부는 API 키가 없는 이 환경에서 검증 못 했다(앞선
+    # 점검들과 동일한 제약).
+    # 철원 - 한탄강 유네스코 세계지질공원 소이산 정상까지 오르는 모노레일. 출처:
+    # https://www.telltrip.com/domestic-travel/cheorwon-soisan-monorail/
+    ("체험·놀이", "소이산 모노레일"),
+    # 평창 대관령 3대 목장(대관령양떼목장/삼양라운드힐/하늘목장) - 카드뉴스에 자주
+    # 언급되는데 셋 다 안 잡혀있었다. "양떼목장" 자체는 카테고리 스윕으로 이미 여러
+    # 지역(정선/울산/양평 등)이 잡히는데 이 3곳만 빠진 걸 보면 등록 명칭이 카테고리
+    # 코드로 안 잡히는 케이스로 추정된다. 출처: https://www.yangtte.co.kr/ ,
+    # https://korean.visitkorea.or.kr/detail/rem_detail.do?cotid=221b3144-b3d5-4a00-882d-0b213a6f91ac
+    ("체험·놀이", "대관령양떼목장"), ("체험·놀이", "삼양라운드힐"),
+    ("체험·놀이", "대관령 하늘목장"),
+    # 강릉 - 국내 최초(1989년 개장) 국립자연휴양림. 출처:
+    # https://www.foresttrip.go.kr/0111/
+    ("나들이·산책", "국립대관령자연휴양림"),
+    # 강릉 - 조선시대 사대부가 한옥 고택, 국가민속문화재 5호. 정원/한옥을 산책하듯
+    # 둘러보기 좋아 나들이·산책으로 분류. 출처:
+    # http://www.heritage.go.kr/heri/cul/culSelectDetail.do?ccbaCpno=1483200050000
+    ("나들이·산책", "강릉 선교장"),
+    # 강릉 - 이미 등록된 부산본부(한국은행 부산본부 화폐전시관)와 같은 패턴의 무료
+    # 화폐 전시관. 출처: https://www.tournews21.com/news/articleView.html?idxno=107655
+    ("전시", "한국은행 강릉본부 화폐전시관"),
+    # 고성 - 국내 최대 규모 라벤더 농장(6월 절정), 카드뉴스에 자주 언급됨. 출처:
+    # https://www.telltrip.com/domestic-travel/gosung-hani-lavender-farm/
+    ("나들이·산책", "하늬라벤더팜"),
+    # 속초 - 외옹치항~속초해수욕장을 잇는 1.74km 해안 산책로, 2018년 개방. 출처:
+    # https://www.gangwon.to/gwtour/only/attraction?articleSeq=305
+    ("나들이·산책", "외옹치 바다향기로"),
 ]
 
 # 카테고리 코드가 따로 없어 제목 키워드로 보완 수집하는 것들
