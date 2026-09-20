@@ -22,6 +22,7 @@ from settings import (
     LOCAL_SEARCH_EXCLUDE_GENRES,
     LOCAL_WATER_JJIM_ALLOWED_GENRES,
     LOCAL_MUSEUM_ALLOWED_GENRES,
+    LOCAL_THEATER_ALLOWED_GENRES,
     LOCAL_SEARCH_HARD_EXCLUDE_GENRES,
     LOCAL_DATA_PATH,
 )
@@ -100,6 +101,10 @@ def build_local_place(item: dict, category: str, existing_titles: set[str]) -> d
         # 무관 업종이 섞여 들어와서 물놀이·찜질방과 같은 화이트리스트 방식을 쓴다.
         if genre not in LOCAL_MUSEUM_ALLOWED_GENRES:
             return None
+    elif category == "공연":
+        if genre not in LOCAL_THEATER_ALLOWED_GENRES:
+            return None
+        genre = "공연장"  # NAVER가 "공연,연극시설"(=genre "공연")로 줄 때 KOPIS 공연 장르와 헷갈리지 않게
     else:
         # "OO안전체험관 주차장"/"OO안전체험관 전기차충전소"처럼 부속시설 이름에
         # 본체 시설명이 그대로 들어가는 경우가 있어, 이런 건 제목 우회 규칙보다
