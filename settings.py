@@ -206,6 +206,43 @@ TOUR_PRIORITY_KEYWORD_TARGETS = [
     # 충남 태안 - 세계적 미로 디자이너가 만든 가변형 미로가 있는 관광농원.
     # 출처: https://mom-mom.net/travel/places/66f366c867183012ca4276b5
     ("체험·놀이", "바람아래관광농원"),
+    # 2026-09-21 - 주간 데이터 완전성 점검(서울 차례) - "서울 아이랑 가볼만한곳"/
+    # "서울 아이와 가볼 만한 곳"/"서울 무료 나들이 명소" 계열 웹 검색으로 발견.
+    # 전부 data/places.json에 없는 걸 확인했다. 대전·충남 때와 마찬가지로
+    # TourAPI 실제 등록 여부는 API 키가 없는 이 환경에서 검증 못 했다.
+    # 용산 미군기지 반환부지에 조성된 무료 정원 - 2025-12-30부터 사전예약 없이
+    # 자유 입장 가능해졌다. 출처: https://yongsanparkstory.kr/ ,
+    # https://mediahub.seoul.go.kr/archives/2017178
+    ("나들이·산책", "용산어린이정원"),
+    # 옛 서대문 일대 한옥/근대건물을 모아 무료 개방하는 역사문화마을 - 문방구 체험,
+    # 교실 전시 등 상설 체험 프로그램이 있다.
+    # 출처: https://korean.visitkorea.or.kr/detail/rem_detail.do?cotid=6b4efbb2-86cd-4b42-9f05-9a9a6e5efe45
+    ("전시", "돈의문박물관마을"),
+    # 광화문 소재 국립 박물관. 별도 어린이박물관(무료, 5개 체험 공간)을 운영하는데
+    # 국가기관이라 기존 국립고궁박물관/국립과천과학관과 같은 cat3='' 패턴으로
+    # 추정된다. 출처: https://www.much.go.kr/L/gRJfsY4Mxr.do
+    ("전시", "대한민국역사박물관"),
+    # 명동 소재 무료 캐릭터 체험 공간(뽀로로/타요 등) 겸 만화 도서관 - 국내
+    # 대표 애니메이션 캐릭터를 만날 수 있는 서울시 운영 시설.
+    # 출처: https://mediahub.seoul.go.kr/archives/2009754
+    ("체험·놀이", "서울애니메이션센터"),
+    # 용산 크라운해태제과 지하 1층의 4~8세 대상 유료 실내 키즈뮤지엄 - 단일
+    # 매장이라 LOCAL_SEARCH_KEYWORDS의 "키즈카페" 같은 범용 키워드로는 안 잡힌다.
+    # 출처: https://access.visitkorea.or.kr/ms/detail.do?cotId=5aa6878c-1bb1-4ea2-bb23-685fb13b1665
+    ("체험·놀이", "크라운해태 키즈뮤지엄"),
+    # 유명 랜드마크인데도 빠져있던 것들 2차 발견분 - 국가기관/문화재청 관리 시설이라
+    # 역시 cat3='' 패턴으로 추정된다. 국립한글박물관은 2025년 화재로 2028년까지
+    # 휴관 중이라(출처: https://www.newsis.com/view/NISX20240801_0002833975) 확신이
+    # 없어 이번엔 뺐다.
+    # 경복궁 - 출처: https://royal.khs.go.kr/ROYAL/contents/R101000000.do
+    ("나들이·산책", "경복궁"),
+    # 국립중앙박물관 - 2026년까지 상설전시 무료 관람.
+    # 출처: https://breezekorea.com/ko/national-museum-of-korea-ko/
+    ("전시", "국립중앙박물관"),
+    # 남산골한옥마을 - 전통 한옥 5채를 무료 개방한 도심 속 산책형 한옥마을.
+    # 출처: https://mom-mom.net/travel/places/641bffccca4d18d6ca38eef1 ,
+    # https://hanokmaeul.co.kr/
+    ("나들이·산책", "남산골한옥마을"),
 ]
 
 # 카테고리 코드가 따로 없어 제목 키워드로 보완 수집하는 것들
