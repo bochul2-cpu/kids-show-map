@@ -206,6 +206,29 @@ TOUR_PRIORITY_KEYWORD_TARGETS = [
     # 충남 태안 - 세계적 미로 디자이너가 만든 가변형 미로가 있는 관광농원.
     # 출처: https://mom-mom.net/travel/places/66f366c867183012ca4276b5
     ("체험·놀이", "바람아래관광농원"),
+    # 2026-10-12 - 주간 데이터 완전성 점검(전북 차례) - "전북/전주 아이랑
+    # 가볼만한곳", "익산 왕궁리유적" 등으로 웹 검색해서 발견. 전부
+    # data/places.json에 없는 걸 확인했다. TourAPI 실제 등록 여부는 API 키가
+    # 없는 이 환경에서 검증 못 했지만(config.py 로컬 전용), 앞서 발견된 것들과
+    # 같은 cat3='' 패턴이거나 카테고리 코드 스윕이 못 잡는 시설로 추정된다.
+    # 전주 한옥마을 - 입장료 무료인 대표 관광지, 덕진공원 - 전주동물원이 있는
+    # 시민공원. 출처: https://www.yugacrew.com/crewletter/jeonju-kids-places ,
+    # https://mom-mom.net/travel/places/63749920fa02b9b77fde1287
+    ("나들이·산책", "전주한옥마을"), ("나들이·산책", "덕진공원"),
+    # 익산 - 백제역사유적지구(2015년 유네스코 세계유산 등재)의 두 핵심 유적.
+    # 출처: https://www.telltrip.com/domestic-travel/iksan-attractions/ ,
+    # https://m.seoul.co.kr/news/2025/08/21/20250821023003
+    ("나들이·산책", "미륵사지"), ("나들이·산책", "왕궁리유적"),
+    # 군산 - 금강 하구에 조성된 국내 최초 철새 테마 시설과, 1985년 국민관광지로
+    # 지정된 호수공원. 출처: https://kr.trip.com/moments/theme/destination-gunsan-14766-recreation-998219 ,
+    # https://v.daum.net/v/tYRiHZ9Url
+    ("나들이·산책", "금강철새조망대"), ("나들이·산책", "은파호수공원"),
+    # 부안 - 변산반도국립공원 안에 있는 사립 미술관(2011년 전북 제3호 미술관
+    # 등록). 출처: https://www.ktriptips.com/kor/culture/2606141
+    ("전시", "휘목미술관"),
+    # 완주 삼례 - 일제강점기 양곡 창고를 개조한 복합 문화예술 공간(책박물관/
+    # 북아트센터/디자인뮤지엄 등). 출처: https://www.ktriptips.com/kor/tourspot/2469088
+    ("전시", "삼례문화예술촌"),
 ]
 
 # 카테고리 코드가 따로 없어 제목 키워드로 보완 수집하는 것들
