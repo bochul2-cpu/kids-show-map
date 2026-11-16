@@ -206,6 +206,53 @@ TOUR_PRIORITY_KEYWORD_TARGETS = [
     # 충남 태안 - 세계적 미로 디자이너가 만든 가변형 미로가 있는 관광농원.
     # 출처: https://mom-mom.net/travel/places/66f366c867183012ca4276b5
     ("체험·놀이", "바람아래관광농원"),
+    # 2026-11-16 - 주간 데이터 완전성 점검(전남·경북 차례) - "전남 아이랑
+    # 가볼만한곳"/"경북 아이와 가볼 만한 곳 무료 나들이 명소" 계열 웹 검색으로
+    # 발견. 전부 data/places.json에 없는 걸 확인했다(부분 문자열 대조). TourAPI
+    # 실제 등록 여부는 API 키가 없는 이 환경에서 검증 못 했지만(config.py 로컬
+    # 전용), 앞서 발견된 국가기관/지자체 시설들과 같은 cat3='' 패턴이거나
+    # 카테고리 코드 스윕이 못 잡는 시설로 추정된다.
+    # 전남 - 세계 유일 공룡·익룡·새 발자국 동시 화석지 + 2023년 신설 어린이공룡과학
+    # 체험관이 있는 박물관. 출처: https://www.wikitree.co.kr/articles/955398
+    ("전시", "해남공룡박물관"),
+    # 전남 순천 - 순천만국가정원(이미 등록돼있음)과는 별개 시설인 습지 생태공원.
+    # 구 명칭이 "순천만자연생태공원"이었다가 "순천만습지"로 바뀌었다.
+    # 출처: https://www.ktriptips.com/kor/tourspot/126730
+    ("나들이·산책", "순천만습지"),
+    # 전남 함평 - 함평나비대축제가 열리는 생태 전시·산책 공원. "함평엑스포공원
+    # 물놀이장"은 이미 등록돼있지만 공원 자체는 빠져있었다.
+    # 출처: https://m.cafe.daum.net/365together/CNQe/3995
+    ("나들이·산책", "함평엑스포공원"),
+    # 전남 영암 - 구림마을 옛 중학교를 리모델링한 무료 도기 박물관.
+    # 출처: https://www.ktriptips.com/kor/tourspot/894204
+    ("전시", "영암도기박물관"),
+    # 전남 영암 - 마한 역사문화 체험이 가능한 무료 상시개방 야외 공원.
+    # 출처: https://www.yugacrew.com/crewletter/yeongam-kids-places
+    ("나들이·산책", "마한문화공원"),
+    # 전남 광양 - 어린이 700원, 월요일 휴관인 도립미술관.
+    # 출처: https://mom-mom.net/travel/places/69dc524677dc12db374598b3
+    ("전시", "전남도립미술관"),
+    # 전남 광양 - 섬진강과 바다가 만나는 지점의 무료 상시개방 수변 산책공원.
+    # 출처: https://www.telltrip.com/domestic-travel/baealdo-waterside-park/
+    ("나들이·산책", "배알도 수변공원"),
+    # 경북 경주 - 남산 자락의 경상북도 제1호 지방정원, 입장료·주차 모두 무료.
+    # 출처: https://www.telltrip.com/domestic-travel/gyeongbuk-millennium-forest-garden-gyeongju/
+    ("나들이·산책", "경북천년숲정원"),
+    # 경북 예천 - 나비터널/곤충 전시관과 체험 프로그램이 있는 곤충생태 체험원.
+    # 출처: https://news.tf.co.kr/read/ogmeta/2353135.htm
+    ("체험·놀이", "예천곤충생태원"),
+    # 경북 포항 - 기초과학부터 체험형 전시까지 갖춘 교육청 산하 과학관.
+    # 출처: https://www.yugacrew.com/yugawiki/%ED%8F%AC%ED%95%AD_%EC%95%84%EC%9D%B4%EB%9E%91_%EA%B0%80%EB%B3%BC%EB%A7%8C%ED%95%9C%EA%B3%B3
+    ("전시", "경상북도교육청과학원"),
+    # 경북 포항 - 연일읍 운제산 자락의 무료 생태공원 산책로.
+    # 출처: https://kbmaeil.com/article/201911130264470
+    ("나들이·산책", "연일중명자연생태공원"),
+    # 경북 안동 - 유교문화를 전시·체험형 콘텐츠로 풀어낸 테마파크.
+    # 출처: https://www.kbmaeil.com/article/20261027500144
+    ("체험·놀이", "유교랜드"),
+    # 경북 경주 - 경주엑스포대공원 안에 있는 공립 미술관.
+    # 출처: https://koreatriptips.com/en/cultural-facilities/3491766.html
+    ("전시", "경주솔거미술관"),
 ]
 
 # 카테고리 코드가 따로 없어 제목 키워드로 보완 수집하는 것들
