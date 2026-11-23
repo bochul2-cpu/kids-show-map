@@ -206,6 +206,56 @@ TOUR_PRIORITY_KEYWORD_TARGETS = [
     # 충남 태안 - 세계적 미로 디자이너가 만든 가변형 미로가 있는 관광농원.
     # 출처: https://mom-mom.net/travel/places/66f366c867183012ca4276b5
     ("체험·놀이", "바람아래관광농원"),
+    # 2026-11-23 - 주간 데이터 완전성 점검(경남·제주 차례) - 지역 순환에서 아직
+    # 한 번도 다루지 않았던 두 지역이라(그동안 수도권/충청/강원/영남 다른 지역
+    # 위주로 돌았음) 이번에 처음 검색했다. "경남 아이랑 가볼만한곳"/"제주 아이와
+    # 가볼 만한 곳" 계열 웹 검색으로 발견. 전부 data/places.json에 없는 걸
+    # 확인했다(부분 문자열 대조). TourAPI 실제 등록 여부는 API 키가 없는 이
+    # 환경에서 검증 못 했지만(config.py 로컬 전용), 앞서 발견된 것들과 같은
+    # cat3='' 패턴이거나 카테고리 코드 스윕이 못 잡는 시설로 추정된다.
+    # 경남 고성 - 공룡 발자국 화석지로 유명한 지역의 공룡 전문 박물관.
+    # 출처: https://info.koreacharts.com/tour/130540/contents.html
+    ("전시", "고성공룡박물관"),
+    # 경남 창원 성산구 - 체험·참여형 전시 위주의 과학관, 미취학 아동 무료.
+    # 출처: https://www.ktriptips.com/kor/culture/2784201
+    ("전시", "창원과학체험관"),
+    # 경남 창원 진해해양공원 안에 있는 해양생물 전시관 - 유영생물전시실/
+    # 저서생물전시실로 구성. 출처: https://knnews.co.kr/news/articleView.php?idxno=563169
+    ("동물원·수족관", "진해해양생물테마파크"),
+    # 경남 창원(마산) - 바닥이 유리로 된 다리가 있는 무료 상시개방 관광지.
+    # 출처: https://knnews.co.kr/news/articleView.php?idxno=1038745
+    ("나들이·산책", "콰이강의다리"),
+    # 경남 거제 - 해안 절벽 산책로가 있는 무료 연중무휴 관광 명소.
+    # 출처: https://www.yugacrew.com/crewletter/gyeongnam-places-to-visit
+    ("나들이·산책", "거제 바람의 언덕"),
+    # 경남 함양 - 천연기념물로 지정된 무료 상시개방 숲 산책공원.
+    # 출처: https://www.yugacrew.com/crewletter/gyeongnam-places-to-visit
+    ("나들이·산책", "함양 상림공원"),
+    # 경남 창원 - 무료 상시개방 수목원(온실만 월요일 휴관).
+    # 출처: https://www.yugacrew.com/crewletter/gyeongnam-places-to-visit
+    ("나들이·산책", "창원수목원"),
+    # 경남 김해 분성산 자락 - 36개월 미만 무료, 유모차 무료 대여가 되는
+    # 가야 테마 체험 공간. 출처: https://www.yugacrew.com/crewletter/gimhae-baby-friendly-places
+    ("체험·놀이", "김해가야테마파크"),
+    # 경남 김해 - 낙동강 옛 철교를 자전거로 건너는 체험형 레일파크.
+    # 출처: https://view.nate.com/travel/view/407036/
+    ("체험·놀이", "김해낙동강레일파크"),
+    # 경남 진주 - 국립진주박물관(이미 등록돼있음)을 품고 있는 성곽 유적지.
+    # 성 자체는 별도 입장료(어린이 600원)가 있는 독립된 장소라 함께 추가.
+    # 출처: https://view.nate.com/travel/view/406962/
+    ("나들이·산책", "진주성"),
+    # 제주 - 제주의 교육사와 옛 교실 재현, 체험 프로그램이 있는 박물관.
+    # 출처: https://www.yugacrew.com/crewletter/jeju-family-museum
+    ("전시", "제주교육박물관"),
+    # 제주시 - 게임·코딩을 체험할 수 있는 넥슨 운영 박물관.
+    # 출처: https://www.yugacrew.com/yugawiki/%EC%A0%9C%EC%A3%BC%EB%8F%84_%EC%96%B4%EB%A6%B0%EC%9D%B4_%EC%B2%B4%ED%97%98
+    ("전시", "넥슨뮤지엄"),
+    # 제주 - 해설 프로그램이 있는 무료 입장 생태공원.
+    # 출처: https://mom-mom.net/travel/places/65d40a0b492c156da9e4bdfd
+    ("나들이·산책", "제주자연생태공원"),
+    # 제주시 - 조선시대 제주목 관아 터를 복원한 사적지, 6세 이하/도민 무료.
+    # 출처: https://www.jjan.kr/articleAmp/20240513580253
+    ("나들이·산책", "제주목관아"),
 ]
 
 # 카테고리 코드가 따로 없어 제목 키워드로 보완 수집하는 것들
